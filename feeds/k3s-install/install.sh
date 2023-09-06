@@ -4,6 +4,8 @@ display_usage() {
     echo "Usage:"
     echo "======"
     echo "./install.sh"
+    echo "# follow the prompts"
+    echo "required: feed name, ethereum rpc url, ethereum address, ethereum keystore file, ethereum password file"
 }
 
 function _preflight {
