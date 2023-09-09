@@ -39,7 +39,7 @@ function create_user {
     echo "[NOTICE]: User chronicle created with no password and added to the sudoers group."
 }
 
-function install_deps {    
+function install_deps {
     sudo apt-get update -y
 
     #check if jq exists
@@ -64,11 +64,11 @@ function install_deps {
         echo "[INFO]: *** helm is already installed ***"
         command helm version
     else
-        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
         echo "[SUCCESS]: helm is now installed !!!"
         command helm version
     fi
-    
+
 
     # check if k3s is installed:
     command -v k3s
@@ -99,7 +99,7 @@ function install_deps {
     if [ "$keeman_check" -eq 0 ]; then
         echo "[INFO]: *** keeman is already installed ***"
     else
-        wget https://github.com/chronicleprotocol/keeman/releases/download/v0.0.1/keeman-v0.0.1-linux-amd64.tar.gz -O - | tar -xz
+        wget https://github.com/chronicleprotocol/keeman/releases/download/v0.4.1/keeman_0.4.1_linux_amd64.tar.gz -O - | tar -xz
         sudo mv keeman /usr/local/bin
     fi
 }
@@ -164,7 +164,7 @@ function collect_vars {
 
     mkdir /home/chronicle/"$feedName"
     cd /home/chronicle/"$feedName" || { echo "[ERROR]: directory not found"; exit 1; }
-    
+
     # Generate the values.yaml file
     cat <<EOF > /home/chronicle/"${feedName}"/generated-values.yaml
 ghost:
@@ -198,7 +198,7 @@ musig:
     ethPass:
       existingSecret: '$feedName-eth-keys'
       key: "ethPass"
-  
+
   ethRpcUrl: "$ethRpcUrl"
   ethChainId: 1
 
