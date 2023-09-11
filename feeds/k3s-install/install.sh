@@ -30,23 +30,23 @@ function _preflight {
       create_user
       echo "[INFO]:..........switch to the chronicle user........."
       echo "[INFO]:..........su chronicle........"
-      # exit 1
+      exit 1
   fi
 }
 
 function create_user {
     # Create the user with no password
-    sudo useradd -m -s /bin/bash chronicle
-    sudo passwd -d chronicle
+    useradd -m -s /bin/bash chronicle
+    passwd -d chronicle
 
     # Add the user to the sudoers group
-    sudo usermod -aG sudo chronicle
+    usermod -aG sudo chronicle
 
     echo "[NOTICE]: User chronicle created with no password and added to the sudoers group."
 }
 
 function install_deps {
-    sudo apt-get update -y
+    sudo apt-get update -y || echo "[ERROR]: apt-get update failed"
 
     #check if jq exists
     command -v jq
@@ -55,11 +55,13 @@ function install_deps {
     if [ "$jq_check" -eq 0 ]; then
         echo "[INFO]: *** jq is already installed ***"
         command jq --version
-    else
+    elseif sudo apt-get update -y; then
         sudo apt-get install jq -y
         echo "[SUCCESS]: jq is now installed !!!"
         command jq --version
-    fi
+		else
+			echo "[ERROR]: jq installation failed"
+		fi
 
 
     #check if helm exists
@@ -85,15 +87,15 @@ function install_deps {
         command k3s -v
     else
         curl -sfL https://get.k3s.io | sh -
-        mkdir /home/chronicle/.kube
-        sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
-        sudo chown chronicle:chronicle /home/chronicle/.kube/config
-        sudo chmod 600 /home/chronicle/.kube/config
+        mkdir /home/$USER/.kube
+        sudo cp /etc/rancher/k3s/k3s.yaml /home/$USER/.kube/config
+        sudo chown chronicle:chronicle /home/$USER/.kube/config
+        sudo chmod 600 /home/$USER/.kube/config
 
         # Add KUBECONFIG environment variable to .bashrc
-        echo "export KUBECONFIG=/home/chronicle/.kube/config ">> /home/chronicle/.bashrc
+        echo "export KUBECONFIG=/home/$USER/.kube/config ">> /home/$USER/.bashrc
         # shellcheck disable=SC1091
-        source "/home/chronicle/.bashrc"
+        source "/home/$USER/.bashrc"
         echo "[SUCCESS]: k3s is now installed !!!"
         command k3s -v
     fi
@@ -119,9 +121,9 @@ function create_namespace {
 function create_eth_secret {
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     ETH_PASS_FILEContent=$(sudo cat $ETH_PASS_FILE)
-    sudo cp $ETH_KEY_FILE /home/chronicle/$FEED_NAME/keystore.json
+    sudo cp $ETH_KEY_FILE /home/$USER/$FEED_NAME/keystore.json
     kubectl create secret generic $FEED_NAME-eth-keys \
-    --from-file=ethKeyStore=/home/chronicle/$FEED_NAME/keystore.json \
+    --from-file=ethKeyStore=/home/$USER/$FEED_NAME/keystore.json \
     --from-literal=ethFrom=$ETH_FROM_ADDR \
     --from-literal=ETH_PASS_FILE=$ETH_PASS_FILEContent \
     --namespace $FEED_NAME
@@ -149,7 +151,7 @@ function create_helm_release {
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     helm repo add chronicle https://chronicleprotocol.github.io/charts/
     helm repo update
-    helm install "$FEED_NAME" -f /home/chronicle/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"
+    helm install "$FEED_NAME" -f /home/$USER/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"
 }
 
 
@@ -185,11 +187,11 @@ function collect_vars {
 			declare -g ETH_PASS_FILE=$ETH_PASS_FILE
 		fi
 
-    mkdir /home/chronicle/"$FEED_NAME"
-    cd /home/chronicle/"$FEED_NAME" || { echo "[ERROR]: directory not found"; exit 1; }
+    sudo mkdir -p /opt/chronicle/"$FEED_NAME"
+    cd /opt/chronicle/"$FEED_NAME" || { echo "[ERROR]: directory not found"; exit 1; }
 
     # Generate the values.yaml file
-    cat <<EOF > /home/chronicle/"${FEED_NAME}"/generated-values.yaml
+    cat <<EOF > /opt/chronicle/"${FEED_NAME}"/generated-values.yaml
 ghost:
   ethConfig:
     ethFrom:
@@ -232,7 +234,7 @@ EOF
     echo "You need to install the helm chart with the following command:"
     echo "-----------------------------------------------------------------------------------------------------"
     # shellcheck disable=SC2086,SC2027
-    echo "|   helm install "$FEED_NAME" -f /home/chronicle/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"            |"
+    echo "|   helm install "$FEED_NAME" -f /home/$USER/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"            |"
     echo "-----------------------------------------------------------------------------------------------------"
 }
 
@@ -257,6 +259,5 @@ create_tor_secret
 
 echo "[INFO]:..........create helme release.........."
 create_helm_release
-
 
 echo "[NOTICE]: setup complete!"
