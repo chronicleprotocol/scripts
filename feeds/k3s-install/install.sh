@@ -46,8 +46,6 @@ function create_user {
 }
 
 function install_deps {
-		sudo apt-get update -y || echo "[ERROR]: apt-get update failed"
-
 		if command -v jq; then
 				echo "[INFO]: *** jq is already installed ***"
 				command jq --version
