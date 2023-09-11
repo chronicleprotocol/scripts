@@ -51,7 +51,8 @@ function install_deps {
 		if command -v jq; then
 				echo "[INFO]: *** jq is already installed ***"
 				command jq --version
-		elif sudo apt-get update -y; then
+		elif command -v apt-get; then
+				sudo apt-get update -y
 				sudo apt-get install jq -y
 				echo "[SUCCESS]: jq is now installed !!!"
 				command jq --version
