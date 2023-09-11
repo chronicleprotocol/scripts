@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail
-
 display_usage() {
     echo "Usage:"
     echo "======"
