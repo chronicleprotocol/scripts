@@ -87,7 +87,7 @@ function install_deps {
         command k3s -v
 
         if [[ -z ${KUBECONFIG:-} ]]; then
-        	source "/home/$USER/.profile"
+        	source "/home/$USER/.profile" || echo "[WARNING] failed to source /home/$USER/.profile"
 				fi
     else
         curl -sfL https://get.k3s.io | sh -
