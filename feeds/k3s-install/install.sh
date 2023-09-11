@@ -87,19 +87,19 @@ function install_deps {
         command k3s -v
 
         if [[ -z ${KUBECONFIG:-} ]]; then
-        	source "/home/$USER/.bashrc"
+        	source "/home/$USER/.profile"
 				fi
     else
         curl -sfL https://get.k3s.io | sh -
-        mkdir /home/$USER/.kube
+        mkdir -p /home/$USER/.kube
         sudo cp /etc/rancher/k3s/k3s.yaml /home/$USER/.kube/config
         sudo chown chronicle:chronicle /home/$USER/.kube/config
         sudo chmod 600 /home/$USER/.kube/config
 
-        # Add KUBECONFIG environment variable to .bashrc
-        echo "export KUBECONFIG=/home/$USER/.kube/config ">> /home/$USER/.bashrc
+        # Add KUBECONFIG environment variable to .profile
+        echo "export KUBECONFIG=/home/$USER/.kube/config ">> /home/$USER/.profile
         # shellcheck disable=SC1091
-        source "/home/$USER/.bashrc"
+        source "/home/$USER/.profile"
         echo "[SUCCESS]: k3s is now installed !!!"
         command k3s -v
     fi
