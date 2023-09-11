@@ -193,6 +193,8 @@ function collect_vars {
     # Generate the values.yaml file
     cat <<EOF | sudo tee /opt/chronicle/"${FEED_NAME}"/generated-values.yaml
 ghost:
+   service:
+     type: LoadBalancer
   ethConfig:
     ethFrom:
       existingSecret: '$FEED_NAME-eth-keys'
@@ -213,6 +215,8 @@ ghost:
   chainId: 1
 
 musig:
+   service:
+     type: LoadBalancer
   ethConfig:
     ethFrom:
       existingSecret: '$FEED_NAME-eth-keys'
