@@ -196,12 +196,12 @@ ghost:
     ethKeys:
       existingSecret: '$FEED_NAME-eth-keys'
       key: "ethKeyStore"
-    ETH_PASS_FILE:
+    ethPass:
       existingSecret: '$FEED_NAME-eth-keys'
-      key: "ETH_PASS_FILE"
+      key: "ethPass"
 
   # ethereum RPC client
-  ETH_RPC_URL: "$ETH_RPC_URL"
+  ethRpcUrl: "$ETH_RPC_URL"
   ethChainId: 1
 
   # default RPC client
@@ -216,11 +216,11 @@ musig:
     ethKeys:
       existingSecret: '$FEED_NAME-eth-keys'
       key: "ethKeyStore"
-    ETH_PASS_FILE:
+    ethPass:
       existingSecret: '$FEED_NAME-eth-keys'
-      key: "ETH_PASS_FILE"
+      key: "ethPass"
 
-  ETH_RPC_URL: "$ETH_RPC_URL"
+  ethRpcUrl: "$ETH_RPC_URL"
   ethChainId: 1
 
 tor-proxy:
