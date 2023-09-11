@@ -11,10 +11,7 @@ display_usage() {
 }
 
 function _preflight {
-	command -v lsb_release
-	os_check=$?
-
-	if [ "$jq_check" -eq 0 ]; then
+	if command -v lsb_release; then
 		# Check the operating system version
 		os_version=$(lsb_release -rs)
 	else
