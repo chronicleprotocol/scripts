@@ -11,8 +11,15 @@ display_usage() {
 }
 
 function _preflight {
-  # Check the operating system version
-  os_version=$(lsb_release -rs)
+	command -v lsb_release
+	os_check=$?
+
+	if [ "$jq_check" -eq 0 ]; then
+		# Check the operating system version
+		os_version=$(lsb_release -rs)
+	else
+		os_version=""
+	fi
 
   # Check if the operating system is Ubuntu 22.04
   if [ "$os_version" != "22.04" ]; then
