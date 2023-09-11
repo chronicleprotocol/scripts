@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 display_usage() {
     echo "Usage:"
     echo "======"
@@ -106,30 +108,36 @@ function install_deps {
 
 function create_namespace {
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-    kubectl create namespace $feedName
+    kubectl create namespace $FEED_NAME
 }
 
 
 function create_eth_secret {
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-    ethPassContent=$(sudo cat $ethPass)
-    sudo cp $keyStoreFile /home/chronicle/$feedName/keystore.json
-    kubectl create secret generic $feedName-eth-keys \
-    --from-file=ethKeyStore=/home/chronicle/$feedName/keystore.json \
-    --from-literal=ethFrom=$ethAddress \
-    --from-literal=ethPass=$ethPassContent \
-    --namespace $feedName
+    ETH_PASS_FILEContent=$(sudo cat $ETH_PASS_FILE)
+    sudo cp $ETH_KEY_FILE /home/chronicle/$FEED_NAME/keystore.json
+    kubectl create secret generic $FEED_NAME-eth-keys \
+    --from-file=ethKeyStore=/home/chronicle/$FEED_NAME/keystore.json \
+    --from-literal=ethFrom=$ETH_FROM_ADDR \
+    --from-literal=ETH_PASS_FILE=$ETH_PASS_FILEContent \
+    --namespace $FEED_NAME
 }
 
 
 function create_tor_secret {
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     keeman gen | tee >(cat >&2) | keeman derive -f onion > torkeys.json
-    kubectl create secret generic $feedName-tor-keys \
+    kubectl create secret generic $FEED_NAME-tor-keys \
         --from-literal=hostname="$(jq -r '.hostname' < torkeys.json)" \
         --from-literal=hs_ed25519_secret_key="$(jq -r '.secret_key' < torkeys.json)" \
         --from-literal=hs_ed25519_public_key="$(jq -r '.public_key' < torkeys.json)" \
-        --namespace $feedName
+        --namespace $FEED_NAME
+
+		echo "-----------------------------------------------------------------------------------------------------"
+		echo "This is your .onion address:"
+		echo "$(jq -r '.hostname' < torkeys.json)"
+		echo "-----------------------------------------------------------------------------------------------------"
+
 }
 
 
@@ -137,79 +145,90 @@ function create_helm_release {
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     helm repo add chronicle https://chronicleprotocol.github.io/charts/
     helm repo update
-    helm install "$feedName" -f /home/chronicle/"$feedName"/generated-values.yaml  chronicle/feed --namespace "$feedName"
+    helm install "$FEED_NAME" -f /home/chronicle/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"
 }
 
 
 function collect_vars {
     # Prompt the user for values
-    echo ">> Enter feed name (eg chronicle-feed):"
-    read -r feedName
-    declare -g feedName=$feedName
 
-    echo ">> Enter the Ethereum RPC URL:"
-    read -r ethRpcUrl
+		if [[ -z ${FEED_NAME:-} ]]; then
+			echo ">> Enter feed name (eg chronicle-feed):"
+			read -r FEED_NAME
+			declare -g FEED_NAME=$FEED_NAME
+		fi
 
-    echo ">> Enter your ETH Address (eg: 0x3a...):"
-    read -r ethAddress
-    declare -g ethAddress=$ethAddress
+		if [[ -z ${ETH_RPC_URL:-} ]]; then
+			echo ">> Enter the Ethereum RPC URL:"
+			read -r ETH_RPC_URL
+    fi
 
-    echo ">> Enter the path to your ETH keystore (eg: /path/to/keystore.json):"
-    read -r keyStoreFile
-    declare -g keyStoreFile=$keyStoreFile
+		if [[ -z ${ETH_FROM_ADDR:-} ]]; then
+			echo ">> Enter your ETH Address (eg: 0x3a...):"
+			read -r ETH_FROM_ADDR
+			declare -g ETH_FROM_ADDR=$ETH_FROM_ADDR
+		fi
 
-    echo ">> Enter the path to your ETH password file (eg: /path/to/password.txt):"
-    read -r ethPass
-    declare -g ethPass=$ethPass
+		if [[ -z ${ETH_KEY_FILE:-} ]]; then
+			echo ">> Enter the path to your ETH keystore (eg: /path/to/keystore.json):"
+			read -r ETH_KEY_FILE
+			declare -g ETH_KEY_FILE=$ETH_KEY_FILE
+		fi
 
-    mkdir /home/chronicle/"$feedName"
-    cd /home/chronicle/"$feedName" || { echo "[ERROR]: directory not found"; exit 1; }
+		if [[ -z ${ETH_PASS_FILE:-} ]]; then
+			echo ">> Enter the path to your ETH password file (eg: /path/to/password.txt):"
+			read -r ETH_PASS_FILE
+			declare -g ETH_PASS_FILE=$ETH_PASS_FILE
+		fi
+
+    mkdir /home/chronicle/"$FEED_NAME"
+    cd /home/chronicle/"$FEED_NAME" || { echo "[ERROR]: directory not found"; exit 1; }
 
     # Generate the values.yaml file
-    cat <<EOF > /home/chronicle/"${feedName}"/generated-values.yaml
+    cat <<EOF > /home/chronicle/"${FEED_NAME}"/generated-values.yaml
 ghost:
   ethConfig:
     ethFrom:
-      existingSecret: '$feedName-eth-keys'
+      existingSecret: '$FEED_NAME-eth-keys'
       key: "ethFrom"
     ethKeys:
-      existingSecret: '$feedName-eth-keys'
+      existingSecret: '$FEED_NAME-eth-keys'
       key: "ethKeyStore"
-    ethPass:
-      existingSecret: '$feedName-eth-keys'
-      key: "ethPass"
+    ETH_PASS_FILE:
+      existingSecret: '$FEED_NAME-eth-keys'
+      key: "ETH_PASS_FILE"
 
   # ethereum RPC client
-  ethRpcUrl: "$ethRpcUrl"
+  ETH_RPC_URL: "$ETH_RPC_URL"
   ethChainId: 1
 
   # default RPC client
-  rpcUrl: "$ethRpcUrl"
+  rpcUrl: "$ETH_RPC_URL"
   chainId: 1
 
 musig:
   ethConfig:
     ethFrom:
-      existingSecret: '$feedName-eth-keys'
+      existingSecret: '$FEED_NAME-eth-keys'
       key: "ethFrom"
     ethKeys:
-      existingSecret: '$feedName-eth-keys'
+      existingSecret: '$FEED_NAME-eth-keys'
       key: "ethKeyStore"
-    ethPass:
-      existingSecret: '$feedName-eth-keys'
-      key: "ethPass"
+    ETH_PASS_FILE:
+      existingSecret: '$FEED_NAME-eth-keys'
+      key: "ETH_PASS_FILE"
 
-  ethRpcUrl: "$ethRpcUrl"
+  ETH_RPC_URL: "$ETH_RPC_URL"
   ethChainId: 1
 
 tor-proxy:
     torConfig:
-      existingSecret: '$feedName-tor-keys'
+      existingSecret: '$FEED_NAME-tor-keys'
 EOF
     echo "You need to install the helm chart with the following command:"
     echo "-----------------------------------------------------------------------------------------------------"
     # shellcheck disable=SC2086,SC2027
-    echo "|   helm install "$feedName" -f /home/chronicle/"$feedName"/generated-values.yaml  chronicle/feed --namespace "$feedName"            |"
+    echo "|   helm install "$FEED_NAME" -f /home/chronicle/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"            |"
     echo "-----------------------------------------------------------------------------------------------------"
 }
 
@@ -223,7 +242,7 @@ echo "[INFO]:..........gather input variables........."
 collect_vars
 
 echo "[INFO]:..........installing k8s chronicle stack.........."
-echo "[INFO]:..........create namespace $feedName.........."
+echo "[INFO]:..........create namespace $FEED_NAME.........."
 create_namespace
 
 echo "[INFO]:..........create secret with ETH keys.........."
