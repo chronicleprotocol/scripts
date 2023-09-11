@@ -91,7 +91,7 @@ function install_deps {
         curl -sfL https://get.k3s.io | sh -
         mkdir -p /home/$USER/.kube
         sudo cp /etc/rancher/k3s/k3s.yaml /home/$USER/.kube/config
-        sudo chown chronicle:chronicle /home/$USER/.kube/config
+        sudo chown $USER:$USER /home/$USER/.kube/config
         sudo chmod 600 /home/$USER/.kube/config
 
         # Add KUBECONFIG environment variable to .profile
