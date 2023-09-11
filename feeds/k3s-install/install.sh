@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xeuo pipefail
+set -euo pipefail
 
 display_usage() {
     echo "Usage:"
@@ -85,6 +85,10 @@ function install_deps {
     if [ "$k3s_check" -eq 0 ]; then
         echo "INFO: *** k3s is already installed ***"
         command k3s -v
+
+        if [[ -z ${KUBECONFIG:-} ]]; then
+        	source "/home/$USER/.bashrc"
+				fi
     else
         curl -sfL https://get.k3s.io | sh -
         mkdir /home/$USER/.kube
@@ -113,13 +117,15 @@ function install_deps {
 }
 
 function create_namespace {
-    #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-    kubectl create namespace $FEED_NAME
+    if kubectl get namespace $FEED_NAME; then
+				echo "[INFO] $FEED_NAME namespace already exists"
+		else
+	    kubectl create namespace $FEED_NAME
+		fi
 }
 
 
 function create_eth_secret {
-    #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     kubectl create secret generic $FEED_NAME-eth-keys \
     --from-file=ethKeyStore=$ETH_KEY_FILE \
     --from-file=ethPass=$ETH_PASS_FILE \
@@ -129,7 +135,6 @@ function create_eth_secret {
 
 
 function create_tor_secret {
-    #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     keeman gen | tee >(cat >&2) | keeman derive -f onion > torkeys.json
     kubectl create secret generic $FEED_NAME-tor-keys \
         --from-literal=hostname="$(jq -r '.hostname' < torkeys.json)" \
@@ -145,7 +150,6 @@ function create_tor_secret {
 
 
 function create_helm_release {
-    #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     helm repo add chronicle https://chronicleprotocol.github.io/charts/
     helm repo update
     helm install "$FEED_NAME" -f /opt/chronicle/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"
