@@ -122,8 +122,8 @@ function create_eth_secret {
     #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     kubectl create secret generic $FEED_NAME-eth-keys \
     --from-file=ethKeyStore=$ETH_KEY_FILE \
+    --from-file=ethPass=$ETH_PASS_FILE \
     --from-literal=ethFrom=$ETH_FROM_ADDR \
-    --from-literal=ethPass="$(cat $ETH_PASS_FILE)" \
     --namespace $FEED_NAME
 }
 
