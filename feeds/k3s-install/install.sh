@@ -55,7 +55,7 @@ function install_deps {
     if [ "$jq_check" -eq 0 ]; then
         echo "[INFO]: *** jq is already installed ***"
         command jq --version
-    elseif sudo apt-get update -y; then
+    elif sudo apt-get update -y; then
         sudo apt-get install jq -y
         echo "[SUCCESS]: jq is now installed !!!"
         command jq --version
@@ -113,13 +113,13 @@ function install_deps {
 }
 
 function create_namespace {
-    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     kubectl create namespace $FEED_NAME
 }
 
 
 function create_eth_secret {
-    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     ETH_PASS_FILEContent=$(sudo cat $ETH_PASS_FILE)
     sudo cp $ETH_KEY_FILE /home/$USER/$FEED_NAME/keystore.json
     kubectl create secret generic $FEED_NAME-eth-keys \
@@ -131,7 +131,7 @@ function create_eth_secret {
 
 
 function create_tor_secret {
-    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     keeman gen | tee >(cat >&2) | keeman derive -f onion > torkeys.json
     kubectl create secret generic $FEED_NAME-tor-keys \
         --from-literal=hostname="$(jq -r '.hostname' < torkeys.json)" \
@@ -148,10 +148,10 @@ function create_tor_secret {
 
 
 function create_helm_release {
-    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     helm repo add chronicle https://chronicleprotocol.github.io/charts/
     helm repo update
-    helm install "$FEED_NAME" -f /home/$USER/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"
+    helm install "$FEED_NAME" -f /opt/chronicle/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"
 }
 
 
@@ -191,7 +191,7 @@ function collect_vars {
     cd /opt/chronicle/"$FEED_NAME" || { echo "[ERROR]: directory not found"; exit 1; }
 
     # Generate the values.yaml file
-    cat <<EOF > /opt/chronicle/"${FEED_NAME}"/generated-values.yaml
+    cat <<EOF | sudo tee /opt/chronicle/"${FEED_NAME}"/generated-values.yaml
 ghost:
   ethConfig:
     ethFrom:
@@ -231,11 +231,6 @@ tor-proxy:
     torConfig:
       existingSecret: '$FEED_NAME-tor-keys'
 EOF
-    echo "You need to install the helm chart with the following command:"
-    echo "-----------------------------------------------------------------------------------------------------"
-    # shellcheck disable=SC2086,SC2027
-    echo "|   helm install "$FEED_NAME" -f /home/$USER/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"            |"
-    echo "-----------------------------------------------------------------------------------------------------"
 }
 
 echo "[INFO]:..........running preflight checks........."
