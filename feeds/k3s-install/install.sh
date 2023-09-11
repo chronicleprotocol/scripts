@@ -175,47 +175,47 @@ function collect_vars {
 		# Generate the values.yaml file
 		cat <<EOF | sudo tee /opt/chronicle/"${FEED_NAME}"/generated-values.yaml
 ghost:
-	service:
-		type: LoadBalancer
-	ethConfig:
-		ethFrom:
-			existingSecret: '$FEED_NAME-eth-keys'
-			key: "ethFrom"
-		ethKeys:
-			existingSecret: '$FEED_NAME-eth-keys'
-			key: "ethKeyStore"
-		ethPass:
-			existingSecret: '$FEED_NAME-eth-keys'
-			key: "ethPass"
+  service:
+    type: LoadBalancer
+  ethConfig:
+    ethFrom:
+      existingSecret: '$FEED_NAME-eth-keys'
+      key: "ethFrom"
+    ethKeys:
+      existingSecret: '$FEED_NAME-eth-keys'
+      key: "ethKeyStore"
+    ethPass:
+      existingSecret: '$FEED_NAME-eth-keys'
+      key: "ethPass"
 
-	# ethereum RPC client
-	ethRpcUrl: "$ETH_RPC_URL"
-	ethChainId: 1
+  # ethereum RPC client
+  ethRpcUrl: "$ETH_RPC_URL"
+  ethChainId: 1
 
-	# default RPC client
-	rpcUrl: "$ETH_RPC_URL"
-	chainId: 1
+  # default RPC client
+  rpcUrl: "$ETH_RPC_URL"
+  chainId: 1
 
 musig:
-	service:
-		type: LoadBalancer
-	ethConfig:
-		ethFrom:
-			existingSecret: '$FEED_NAME-eth-keys'
-			key: "ethFrom"
-		ethKeys:
-			existingSecret: '$FEED_NAME-eth-keys'
-			key: "ethKeyStore"
-		ethPass:
-			existingSecret: '$FEED_NAME-eth-keys'
-			key: "ethPass"
+  service:
+    type: LoadBalancer
+  ethConfig:
+    ethFrom:
+      existingSecret: '$FEED_NAME-eth-keys'
+      key: "ethFrom"
+    ethKeys:
+      existingSecret: '$FEED_NAME-eth-keys'
+      key: "ethKeyStore"
+    ethPass:
+      existingSecret: '$FEED_NAME-eth-keys'
+      key: "ethPass"
 
-	ethRpcUrl: "$ETH_RPC_URL"
-	ethChainId: 1
+  ethRpcUrl: "$ETH_RPC_URL"
+  ethChainId: 1
 
 tor-proxy:
-		torConfig:
-			existingSecret: '$FEED_NAME-tor-keys'
+  torConfig:
+    existingSecret: '$FEED_NAME-tor-keys'
 EOF
 }
 
