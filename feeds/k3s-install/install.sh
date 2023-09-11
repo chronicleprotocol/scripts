@@ -120,12 +120,10 @@ function create_namespace {
 
 function create_eth_secret {
     #export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-    ETH_PASS_FILEContent=$(sudo cat $ETH_PASS_FILE)
-    sudo cp $ETH_KEY_FILE /home/$USER/$FEED_NAME/keystore.json
     kubectl create secret generic $FEED_NAME-eth-keys \
-    --from-file=ethKeyStore=/home/$USER/$FEED_NAME/keystore.json \
+    --from-file=ethKeyStore=$ETH_KEY_FILE \
     --from-literal=ethFrom=$ETH_FROM_ADDR \
-    --from-literal=ETH_PASS_FILE=$ETH_PASS_FILEContent \
+    --from-literal=ethPass="$(cat $ETH_PASS_FILE)" \
     --namespace $FEED_NAME
 }
 
@@ -143,7 +141,6 @@ function create_tor_secret {
 		echo "This is your .onion address:"
 		echo "$(jq -r '.hostname' < torkeys.json)"
 		echo "-----------------------------------------------------------------------------------------------------"
-
 }
 
 
@@ -188,7 +185,6 @@ function collect_vars {
 		fi
 
     sudo mkdir -p /opt/chronicle/"$FEED_NAME"
-    cd /opt/chronicle/"$FEED_NAME" || { echo "[ERROR]: directory not found"; exit 1; }
 
     # Generate the values.yaml file
     cat <<EOF | sudo tee /opt/chronicle/"${FEED_NAME}"/generated-values.yaml
