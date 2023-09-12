@@ -1,245 +1,250 @@
 #!/bin/bash
 
-set -euo pipefail
-
 display_usage() {
-		echo "Usage:"
-		echo "======"
-		echo "./install.sh"
-		echo "# follow the prompts"
-		echo "required: feed name, ethereum rpc url, ethereum address, ethereum keystore file, ethereum password file"
+    echo "Usage:"
+    echo "======"
+    echo "./install.sh"
+    echo "# follow the prompts"
+    echo "required: feed name, ethereum rpc url, ethereum address, ethereum keystore file, ethereum password file"
 }
 
 function _preflight {
-	if command -v lsb_release; then
-		# Check the operating system version
-		os_version=$(lsb_release -rs)
-	else
-		os_version=""
-	fi
+  # Check the operating system version
+  os_version=$(lsb_release -rs)
 
-	# Check if the operating system is Ubuntu 22.04
-	if [ "$os_version" != "22.04" ]; then
-			echo "[WARNING] This script is designed for Ubuntu 22.04 and may not work correctly on your system!"
-	fi
+  # Check if the operating system is Ubuntu 22.04
+  if [ "$os_version" != "22.04" ]; then
+      echo "[WARNING]: This script is designed for Ubuntu 22.04 and may not work correctly on your system!"
+  fi
 
-	# Check if the user is root
-	if [ "$USER" == "root" ]; then
-			echo "[WARNING] This script should not be run as root. I will attempt to create a new user called **chronicle**"
-			echo "[INFO] creating chronicle user"
-			create_user
-			echo "[INFO] switch to the chronicle user"
-			echo "[INFO] su - chronicle"
-			exit 1
-	fi
+  # Check if the user is root
+  if [ "$USER" == "root" ]; then
+      echo "[WARNING]: This script should not be run as root. I will attempt to create a new user called **chronicle**"
+      echo "[INFO]:..........creating chronicle user........."
+      create_user
+      echo "[INFO]:..........switch to the chronicle user........."
+      echo "[INFO]:..........su chronicle........"
+      # exit 1
+  fi
 }
 
 function create_user {
-		# Create the user with no password
-		useradd -m -s /bin/bash chronicle
-		passwd -d chronicle
+    # Create the user with no password
+    sudo useradd -m -s /bin/bash chronicle
+    sudo passwd -d chronicle
 
-		# Add the user to the sudoers group
-		usermod -aG sudo chronicle
+    # Add the user to the sudoers group
+    sudo usermod -aG sudo chronicle
 
-		echo "[NOTICE] User chronicle created with no password and added to the sudoers group."
+    echo "[NOTICE]: User chronicle created with no password and added to the sudoers group."
 }
 
 function install_deps {
-		if command -v jq; then
-				echo "[INFO] *** jq is already installed ***"
-				command jq --version
-		elif command -v apt-get; then
-				sudo apt-get update -y
-				sudo apt-get install jq -y
-				echo "[SUCCESS] jq is now installed !!!"
-				command jq --version
-		else
-			echo "[ERROR] jq installation failed"
-		fi
+    sudo apt-get update -y
 
-		if command -v helm; then
-				echo "[INFO] *** helm is already installed ***"
-				command helm version
-		else
-				curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-				echo "[SUCCESS] helm is now installed !!!"
-				command helm version
-		fi
+    #check if jq exists
+    command -v jq
+    jq_check=$?
 
-		if command -v k3s; then
-				echo "INFO: *** k3s is already installed ***"
-				command k3s -v
+    if [ "$jq_check" -eq 0 ]; then
+        echo "[INFO]: *** jq is already installed ***"
+        command jq --version
+    else
+        sudo apt-get install jq -y
+        echo "[SUCCESS]: jq is now installed !!!"
+        command jq --version
+    fi
 
-				if [[ -z ${KUBECONFIG:-} ]]; then
-					export KUBECONFIG="/home/$USER/.kube/config"
-				fi
-		else
-				curl -sfL https://get.k3s.io | sh -
-				mkdir -p /home/$USER/.kube
-				sudo cp /etc/rancher/k3s/k3s.yaml /home/$USER/.kube/config
-				sudo chown $USER:$USER /home/$USER/.kube/config
-				sudo chmod 600 /home/$USER/.kube/config
 
-				# Add KUBECONFIG environment variable to .profile
-				echo "export KUBECONFIG=/home/$USER/.kube/config ">> /home/$USER/.profile
-				# shellcheck disable=SC1091
-				source "/home/$USER/.profile"
-				echo "[SUCCESS] k3s is now installed !!!"
-				command k3s -v
-		fi
+    #check if helm exists
+    command -v helm
+    helm_check=$?
 
-		if command -v keeman; then
-				echo "[INFO] *** keeman is already installed ***"
-		else
-				wget https://github.com/chronicleprotocol/keeman/releases/download/v0.4.1/keeman_0.4.1_linux_amd64.tar.gz -O - | tar -xz
-				sudo mv keeman /usr/local/bin
-		fi
+    if [ "$helm_check" -eq 0 ]; then
+        echo "[INFO]: *** helm is already installed ***"
+        command helm version
+    else
+        curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        echo "[SUCCESS]: helm is now installed !!!"
+        command helm version
+    fi
+
+
+    # check if k3s is installed:
+    command -v k3s
+    k3s_check=$?
+
+    if [ "$k3s_check" -eq 0 ]; then
+        echo "INFO: *** k3s is already installed ***"
+        command k3s -v
+    else
+        curl -sfL https://get.k3s.io | sh -
+        mkdir /home/chronicle/.kube
+        sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
+        sudo chown chronicle:chronicle /home/chronicle/.kube/config
+        sudo chmod 600 /home/chronicle/.kube/config
+
+        # Add KUBECONFIG environment variable to .bashrc
+        echo "export KUBECONFIG=/home/chronicle/.kube/config ">> /home/chronicle/.bashrc
+        # shellcheck disable=SC1091
+        source "/home/chronicle/.bashrc"
+        echo "[SUCCESS]: k3s is now installed !!!"
+        command k3s -v
+    fi
+
+    # check if keeman is installed:
+    command -v keeman
+    keeman_check=$?
+
+    if [ "$keeman_check" -eq 0 ]; then
+        echo "[INFO]: *** keeman is already installed ***"
+    else
+        wget https://github.com/chronicleprotocol/keeman/releases/download/v0.4.1/keeman_0.4.1_linux_amd64.tar.gz -O - | tar -xz
+        sudo mv keeman /usr/local/bin
+    fi
 }
 
 function create_namespace {
-		if kubectl get namespace $FEED_NAME; then
-				echo "[INFO] $FEED_NAME namespace already exists"
-		else
-			kubectl create namespace $FEED_NAME
-		fi
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    kubectl create namespace $feedName
 }
 
 
 function create_eth_secret {
-		kubectl create secret generic $FEED_NAME-eth-keys \
-		--from-literal=ethKeyStore="$(sudo cat $ETH_KEY_FILE)" \
-		--from-literal=ethPass="$(sudo cat $ETH_PASS_FILE)" \
-		--from-literal=ethFrom="$ETH_FROM_ADDR" \
-		--namespace $FEED_NAME
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+	sudo cp $ethPass /opt/chronicle/$feedName/password.txt
+    sudo cp $keyStoreFile /opt/chronicle/$feedName/keystore.json
+	sudo chown chronicle:chronicle -R /opt/chronicle/$feedName
+    kubectl create secret generic $feedName-eth-keys \
+    --from-file=ethKeyStore=/opt/chronicle/$feedName/keystore.json \
+    --from-literal=ethFrom=$ethAddress \
+    --from-file=ethPass=/opt/chronicle/$feedName/password.txt \
+    --namespace $feedName
+
+	echo "-----------------------------------------------------------------------------------------------------"
+	echo "This is your Feed address:"
+	echo "$ethAddress"
+	echo "-----------------------------------------------------------------------------------------------------"
 }
 
 
 function create_tor_secret {
-		keeman gen | tee >(cat >&2) | keeman derive -f onion > torkeys.json
-		kubectl create secret generic $FEED_NAME-tor-keys \
-				--from-literal=hostname="$(jq -r '.hostname' < torkeys.json)" \
-				--from-literal=hs_ed25519_secret_key="$(jq -r '.secret_key' < torkeys.json)" \
-				--from-literal=hs_ed25519_public_key="$(jq -r '.public_key' < torkeys.json)" \
-				--namespace $FEED_NAME
-
-		echo "-----------------------------------------------------------------------------------------------------"
-		echo "This is your .onion address:"
-		echo "$(jq -r '.hostname' < torkeys.json)"
-		echo "-----------------------------------------------------------------------------------------------------"
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    keeman gen | tee >(cat >&2) | keeman derive -f onion > /opt/chronicle/$feedName/torkeys.json
+	sudo chown chronicle:chronicle -R /opt/chronicle/$feedName
+    kubectl create secret generic $feedName-tor-keys \
+        --from-literal=hostname="$(jq -r '.hostname' < /opt/chronicle/$feedName/torkeys.json)" \
+        --from-literal=hs_ed25519_secret_key="$(jq -r '.secret_key' < /opt/chronicle/$feedName/torkeys.json)" \
+        --from-literal=hs_ed25519_public_key="$(jq -r '.public_key' < /opt/chronicle/$feedName/torkeys.json)" \
+        --namespace $feedName
+	echo "-----------------------------------------------------------------------------------------------------"
+	echo "This is your .onion address:"
+	echo "$(jq -r '.hostname' < /opt/chronicle/$feedName/torkeys.json)"
+	echo "-----------------------------------------------------------------------------------------------------"
 }
+
 
 function create_helm_release {
-		helm repo add chronicle https://chronicleprotocol.github.io/charts/
-		helm repo update
-		helm install "$FEED_NAME" -f /opt/chronicle/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    helm repo add chronicle https://chronicleprotocol.github.io/charts/
+    helm repo update
+    helm install "$feedName" -f /opt/chronicle/"$feedName"/generated-values.yaml  chronicle/feed --namespace "$feedName"
 }
 
+
 function collect_vars {
-		# Prompt the user for values
+    # Prompt the user for values
+    echo ">> Enter feed name (eg chronicle-feed):"
+    read -r feedName
+    declare -g feedName=$feedName
 
-		if [[ -z ${FEED_NAME:-} ]]; then
-			echo ">> Enter feed name (eg chronicle-feed):"
-			read -r FEED_NAME
-			declare -g FEED_NAME=$FEED_NAME
-		fi
+    echo ">> Enter the Ethereum RPC URL:"
+    read -r ethRpcUrl
 
-		if [[ -z ${ETH_RPC_URL:-} ]]; then
-			echo ">> Enter the Ethereum RPC URL:"
-			read -r ETH_RPC_URL
-		fi
+    echo ">> Enter your ETH Address (eg: 0x3a...):"
+    read -r ethAddress
+    declare -g ethAddress=$ethAddress
 
-		if [[ -z ${ETH_FROM_ADDR:-} ]]; then
-			echo ">> Enter your ETH Address (eg: 0x3a...):"
-			read -r ETH_FROM_ADDR
-			declare -g ETH_FROM_ADDR=$ETH_FROM_ADDR
-		fi
+    echo ">> Enter the path to your ETH keystore (eg: /path/to/keystore.json):"
+    read -r keyStoreFile
+    declare -g keyStoreFile=$keyStoreFile
 
-		if [[ -z ${ETH_KEY_FILE:-} ]]; then
-			echo ">> Enter the path to your ETH keystore (eg: /path/to/keystore.json):"
-			read -r ETH_KEY_FILE
-			declare -g ETH_KEY_FILE=$ETH_KEY_FILE
-		fi
+    echo ">> Enter the path to your ETH password file (eg: /path/to/password.txt):"
+    read -r ethPass
+    declare -g ethPass=$ethPass
 
-		if [[ -z ${ETH_PASS_FILE:-} ]]; then
-			echo ">> Enter the path to your ETH password file (eg: /path/to/password.txt):"
-			read -r ETH_PASS_FILE
-			declare -g ETH_PASS_FILE=$ETH_PASS_FILE
-		fi
+    mkdir -p /opt/chronicle/"$feedName"
+    cd /opt/chronicle/"$feedName" || { echo "[ERROR]: directory not found"; exit 1; }
 
-		sudo mkdir -p /opt/chronicle/"$FEED_NAME"
-
-		# Generate the values.yaml file
-		cat <<EOF | sudo tee /opt/chronicle/"${FEED_NAME}"/generated-values.yaml
+    # Generate the values.yaml file
+    cat <<EOF > /opt//chronicle/"${feedName}"/generated-values.yaml
 ghost:
-  image:
-    pullPolicy: Always
-  service:
-    type: LoadBalancer
   ethConfig:
     ethFrom:
-      existingSecret: '$FEED_NAME-eth-keys'
+      existingSecret: '$feedName-eth-keys'
       key: "ethFrom"
     ethKeys:
-      existingSecret: '$FEED_NAME-eth-keys'
+      existingSecret: '$feedName-eth-keys'
       key: "ethKeyStore"
     ethPass:
-      existingSecret: '$FEED_NAME-eth-keys'
+      existingSecret: '$feedName-eth-keys'
       key: "ethPass"
 
   # ethereum RPC client
-  ethRpcUrl: "$ETH_RPC_URL"
+  ethRpcUrl: "$ethRpcUrl"
   ethChainId: 1
 
   # default RPC client
-  rpcUrl: "$ETH_RPC_URL"
+  rpcUrl: "$ethRpcUrl"
   chainId: 1
 
 musig:
-  image:
-    pullPolicy: Always
-  service:
-    type: LoadBalancer
   ethConfig:
     ethFrom:
-      existingSecret: '$FEED_NAME-eth-keys'
+      existingSecret: '$feedName-eth-keys'
       key: "ethFrom"
     ethKeys:
-      existingSecret: '$FEED_NAME-eth-keys'
+      existingSecret: '$feedName-eth-keys'
       key: "ethKeyStore"
     ethPass:
-      existingSecret: '$FEED_NAME-eth-keys'
+      existingSecret: '$feedName-eth-keys'
       key: "ethPass"
 
-  ethRpcUrl: "$ETH_RPC_URL"
+  ethRpcUrl: "$ethRpcUrl"
   ethChainId: 1
 
 tor-proxy:
-  torConfig:
-    existingSecret: '$FEED_NAME-tor-keys'
+    torConfig:
+      existingSecret: '$feedName-tor-keys'
 EOF
+    echo "You need to install the helm chart with the following command:"
+    echo "-----------------------------------------------------------------------------------------------------"
+    # shellcheck disable=SC2086,SC2027
+    echo "|   helm install "$feedName" -f /opt/chronicle/"$feedName"/generated-values.yaml  chronicle/feed --namespace "$feedName"            |"
+    echo "-----------------------------------------------------------------------------------------------------"
 }
 
-echo "[INFO] running preflight checks"
+echo "[INFO]:..........running preflight checks........."
 _preflight
 
-echo "[INFO] installing dependencies"
+echo "[INFO]:..........installing dependencies........."
 install_deps
 
-echo "[INFO] gather input variables"
+echo "[INFO]:..........gather input variables........."
 collect_vars
 
-echo "[INFO] installing k8s chronicle stack"
-echo "[INFO] create namespace $FEED_NAME"
+echo "[INFO]:..........installing k8s chronicle stack.........."
+echo "[INFO]:..........create namespace $feedName.........."
 create_namespace
 
-echo "[INFO] create secret with ETH keys"
+echo "[INFO]:..........create secret with ETH keys.........."
 create_eth_secret
 
-echo "[INFO] create secret with TOR keys"
+echo "[INFO]:..........create secret with TOR keys.........."
 create_tor_secret
 
-echo "[INFO] create helme release"
+echo "[INFO]:..........create helme release.........."
 create_helm_release
 
-echo "[NOTICE] setup complete!"
+
+echo "[NOTICE]: setup complete!"
