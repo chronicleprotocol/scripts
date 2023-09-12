@@ -81,7 +81,7 @@ function install_deps {
         curl -sfL https://get.k3s.io | sh -
         mkdir /home/chronicle/.kube
         sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
-        sudo chown chronicle:chronicle /home/chronicle/.kube/config
+        sudo chown chronicle:chronicle -R /home/chronicle/.kube
         sudo chmod 600 /home/chronicle/.kube/config
 
         # Add KUBECONFIG environment variable to .bashrc
@@ -177,8 +177,10 @@ function collect_vars {
     cd /opt/chronicle/"$feedName" || { echo "[ERROR]: directory not found"; exit 1; }
 
     # Generate the values.yaml file
-    cat <<EOF > /opt//chronicle/"${feedName}"/generated-values.yaml
+    cat <<EOF > /opt/chronicle/"${feedName}"/generated-values.yaml
 ghost:
+  service:
+    type: LoadBalancer
   ethConfig:
     ethFrom:
       existingSecret: '$feedName-eth-keys'
@@ -199,6 +201,8 @@ ghost:
   chainId: 1
 
 musig:
+  service:
+    type: LoadBalancer
   ethConfig:
     ethFrom:
       existingSecret: '$feedName-eth-keys'
@@ -214,14 +218,16 @@ musig:
   ethChainId: 1
 
 tor-proxy:
-    torConfig:
-      existingSecret: '$feedName-tor-keys'
+  service:
+    type: LoadBalancer
+  torConfig:
+    existingSecret: '$feedName-tor-keys'
 EOF
     echo "You need to install the helm chart with the following command:"
-    echo "-----------------------------------------------------------------------------------------------------"
+    echo "-------------------------------------------------------------------------------------------------------------------------------"
     # shellcheck disable=SC2086,SC2027
-    echo "|   helm install "$feedName" -f /opt/chronicle/"$feedName"/generated-values.yaml  chronicle/feed --namespace "$feedName"            |"
-    echo "-----------------------------------------------------------------------------------------------------"
+    echo "|   helm install "$feedName" -f /opt/chronicle/"$feedName"/generated-values.yaml  chronicle/feed --namespace "$feedName"       |"
+    echo "-------------------------------------------------------------------------------------------------------------------------------"
 }
 
 echo "[INFO]:..........running preflight checks........."
