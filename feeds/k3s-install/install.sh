@@ -108,9 +108,9 @@ function create_namespace {
 
 function create_eth_secret {
 		kubectl create secret generic $FEED_NAME-eth-keys \
-		--from-file=ethKeyStore="$ETH_KEY_FILE" \
-		--from-literal=ethPass="$(cat $ETH_PASS_FILE)" \
-		--from-literal=ethFrom="$ETH_FROM_ADDR" \
+		--from-file=ethKeyStore=<(sudo cat $ETH_KEY_FILE) \
+		--from-literal=ethPass=$(sudo cat $ETH_PASS_FILE) \
+		--from-literal=ethFrom=$ETH_FROM_ADDR \
 		--namespace $FEED_NAME
 }
 
