@@ -29,7 +29,7 @@ function _preflight {
 			echo "[INFO] creating chronicle user"
 			create_user
 			echo "[INFO] switch to the chronicle user"
-			echo "[INFO] su chronicle"
+			echo "[INFO] su - chronicle"
 			exit 1
 	fi
 }
@@ -172,7 +172,7 @@ function collect_vars {
 		# Generate the values.yaml file
 		cat <<EOF | sudo tee /opt/chronicle/"${FEED_NAME}"/generated-values.yaml
 ghost:
-  image
+  image:
     pullPolicy: Always
   service:
     type: LoadBalancer
@@ -196,7 +196,7 @@ ghost:
   chainId: 1
 
 musig:
-  image
+  image:
     pullPolicy: Always
   service:
     type: LoadBalancer
