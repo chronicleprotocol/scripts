@@ -195,8 +195,6 @@ function collect_vars {
     # Generate the values.yaml file
     cat <<EOF > /home/chronicle/"${feedName}"/generated-values.yaml
 ghost:
-  service:
-    type: ClusterIP
   ethConfig:
     ethFrom:
       existingSecret: '$feedName-eth-keys'
@@ -217,8 +215,6 @@ ghost:
   chainId: 1
 
 musig:
-  service:
-    type: ClusterIP
   ethConfig:
     ethFrom:
       existingSecret: '$feedName-eth-keys'
@@ -234,8 +230,6 @@ musig:
   ethChainId: 1
 
 tor-proxy:
-  service:
-    type: ClusterIP
   torConfig:
     existingSecret: '$feedName-tor-keys'
 EOF
