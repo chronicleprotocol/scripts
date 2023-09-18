@@ -79,7 +79,7 @@ function install_deps {
         command k3s -v
     else
         NODE_EXT_IP=$(curl -s ifconfig.me)
-        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server" --node-external-ip $NODE_EXT_IP | sh -s -
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server" sh -s - --node-external-ip $NODE_EXT_IP
         mkdir /home/chronicle/.kube
         sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
         sudo chown chronicle:chronicle -R /home/chronicle/.kube
