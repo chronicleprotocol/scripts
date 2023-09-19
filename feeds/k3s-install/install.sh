@@ -268,7 +268,7 @@ create_eth_secret
 echo "[INFO]:..........create secret with TOR keys.........."
 create_tor_secret
 
-echo "[INFO]:..........create helme release.........."
+echo "[INFO]:..........create helm release.........."
 create_helm_release
 
 
