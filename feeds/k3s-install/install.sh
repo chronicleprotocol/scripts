@@ -42,6 +42,9 @@ function create_user {
 function install_deps {
     sudo apt-get update -y
 
+    export NODE_EXT_IP=$(curl -s ifconfig.me)
+    echo "[INFO]: *** Node IP is $NODE_EXT_IP ***"
+
     #check if jq exists
     command -v jq
     jq_check=$?
@@ -78,7 +81,6 @@ function install_deps {
         echo "INFO: *** k3s is already installed ***"
         command k3s -v
     else
-        export NODE_EXT_IP=$(curl -s ifconfig.me)
         curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server" sh -s - --node-external-ip $NODE_EXT_IP
         mkdir /home/chronicle/.kube
         sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
@@ -209,7 +211,7 @@ ghost:
 
   env:
     normal:
-      CFG_LIBP2P_EXTERNAL_ADDR: "/ip4/$NODE_EXT_IP"
+      CFG_LIBP2P_EXTERNAL_ADDR: '/ip4/${NODE_EXT_IP}'
 
   # ethereum RPC client
   ethRpcUrl: "$ethRpcUrl"
@@ -233,7 +235,7 @@ musig:
 
   env:
     normal:
-      CFG_LIBP2P_EXTERNAL_ADDR: "/ip4/$NODE_EXT_IP"
+      CFG_LIBP2P_EXTERNAL_ADDR: "/ip4/${NODE_EXT_IP}"
 
   ethRpcUrl: "$ethRpcUrl"
   ethChainId: 1
