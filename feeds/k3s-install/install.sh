@@ -78,7 +78,7 @@ function install_deps {
         echo "INFO: *** k3s is already installed ***"
         command k3s -v
     else
-        NODE_EXT_IP=$(curl -s ifconfig.me)
+        export NODE_EXT_IP=$(curl -s ifconfig.me)
         curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server" sh -s - --node-external-ip $NODE_EXT_IP
         mkdir /home/chronicle/.kube
         sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
@@ -192,7 +192,7 @@ function collect_vars {
 
     mkdir -p /home/chronicle/"$feedName"
     cd /home/chronicle/"$feedName" || { echo "[ERROR]: directory not found"; exit 1; }
-
+    
     # Generate the values.yaml file
     cat <<EOF > /home/chronicle/"${feedName}"/generated-values.yaml
 ghost:
@@ -206,6 +206,10 @@ ghost:
     ethPass:
       existingSecret: '$feedName-eth-keys'
       key: "ethPass"
+
+  env:
+    normal:
+      CFG_LIBP2P_EXTERNAL_ADDR: "/ip4/$NODE_EXT_IP"
 
   # ethereum RPC client
   ethRpcUrl: "$ethRpcUrl"
@@ -226,6 +230,10 @@ musig:
     ethPass:
       existingSecret: '$feedName-eth-keys'
       key: "ethPass"
+
+  env:
+    normal:
+      CFG_LIBP2P_EXTERNAL_ADDR: "/ip4/$NODE_EXT_IP"
 
   ethRpcUrl: "$ethRpcUrl"
   ethChainId: 1
