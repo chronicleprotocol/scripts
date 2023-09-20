@@ -86,7 +86,7 @@ function install_deps {
         sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
         sudo chown chronicle:chronicle -R /home/chronicle/.kube
         sudo chmod 600 /home/chronicle/.kube/config
-        
+
         # Add KUBECONFIG environment variable to .bashrc
         echo "export KUBECONFIG=/home/chronicle/.kube/config ">> /home/chronicle/.bashrc
         # shellcheck disable=SC1091
@@ -111,7 +111,7 @@ function create_namespace {
     if [ $(id -u) -eq 0 ]; then
       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     else
-      export KUBECONFIG=$HOME/.kube/config 
+      export KUBECONFIG=$HOME/.kube/config
     fi
     kubectl create namespace $feedName
 }
@@ -121,10 +121,10 @@ function create_eth_secret {
     if [ $(id -u) -eq 0 ]; then
       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     else
-      export KUBECONFIG=$HOME/.kube/config 
+      export KUBECONFIG=$HOME/.kube/config
     fi
 	  ethPassContent=$(sudo cat $ethPass)
-    sudo cp $keyStoreFile /home/chronicle/$feedName/keystore.json 
+    sudo cp $keyStoreFile /home/chronicle/$feedName/keystore.json
 	  sudo chown chronicle:chronicle -R /home/chronicle/$feedName
     kubectl create secret generic $feedName-eth-keys \
     --from-file=ethKeyStore=/home/chronicle/$feedName/keystore.json \
@@ -143,7 +143,7 @@ function create_tor_secret {
     if [ $(id -u) -eq 0 ]; then
       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     else
-      export KUBECONFIG=$HOME/.kube/config 
+      export KUBECONFIG=$HOME/.kube/config
     fi
     keeman gen | tee >(cat >&2) | keeman derive -f onion > /home/chronicle/$feedName/torkeys.json
 	  sudo chown chronicle:chronicle -R /home/chronicle/$feedName
@@ -152,9 +152,11 @@ function create_tor_secret {
         --from-literal=hs_ed25519_secret_key="$(jq -r '.secret_key' < /home/chronicle/$feedName/torkeys.json)" \
         --from-literal=hs_ed25519_public_key="$(jq -r '.public_key' < /home/chronicle/$feedName/torkeys.json)" \
         --namespace $feedName
+
+	declare -g TOR_HOSTNAME="$(jq -r '.hostname' < /home/chronicle/$feedName/torkeys.json)"
 	echo "-----------------------------------------------------------------------------------------------------"
 	echo "This is your .onion address:"
-	echo "$(jq -r '.hostname' < /home/chronicle/$feedName/torkeys.json)"
+	echo "$TOR_HOSTNAME"
 	echo "-----------------------------------------------------------------------------------------------------"
 }
 
@@ -163,7 +165,7 @@ function create_helm_release {
     if [ $(id -u) -eq 0 ]; then
       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     else
-      export KUBECONFIG=$HOME/.kube/config 
+      export KUBECONFIG=$HOME/.kube/config
     fi
     helm repo add chronicle https://chronicleprotocol.github.io/charts/
     helm repo update
@@ -194,7 +196,9 @@ function collect_vars {
 
     mkdir -p /home/chronicle/"$feedName"
     cd /home/chronicle/"$feedName" || { echo "[ERROR]: directory not found"; exit 1; }
-    
+}
+
+function generate_values {
     # Generate the values.yaml file
     cat <<EOF > /home/chronicle/"${feedName}"/generated-values.yaml
 ghost:
@@ -236,6 +240,7 @@ musig:
   env:
     normal:
       CFG_LIBP2P_EXTERNAL_ADDR: "/ip4/${NODE_EXT_IP}"
+      CFG_WEB_URL: "${TOR_HOSTNAME}"
 
   ethRpcUrl: "$ethRpcUrl"
   ethChainId: 1
@@ -269,6 +274,9 @@ create_eth_secret
 
 echo "[INFO]:..........create secret with TOR keys.........."
 create_tor_secret
+
+echo "[INFO]:..........generate helm values file.........."
+generate_values
 
 echo "[INFO]:..........create helm release.........."
 create_helm_release
