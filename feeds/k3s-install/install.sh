@@ -80,13 +80,65 @@ get_public_ip() {
 }
 
 install_deps() {
+    echo "[INFO]:..........Updating package lists for upgrades and new package installations........."
     sudo apt-get update -y
-    validate_command jq
-    validate_command helm
-    validate_command k3s
-    validate_command keeman
-    # ... (rest of the function as before)
+    
+    # Validate and install dig
+    if ! command -v dig > /dev/null; then
+        echo "[INFO]:..........Installing dnsutils for dig command........."
+        sudo apt-get install -y dnsutils
+        validate_command dig
+        echo "[SUCCESS]: dig is now installed !!!"
+    fi
+    
+    # Validate and install curl
+    if ! command -v curl > /dev/null; then
+        echo "[INFO]:..........Installing curl........."
+        sudo apt-get install -y curl
+        validate_command curl
+        echo "[SUCCESS]: curl is now installed !!!"
+    fi
+    
+    # Validate and install jq
+    if ! command -v jq > /dev/null; then
+        echo "[INFO]:..........Installing jq........."
+        sudo apt-get install -y jq
+        validate_command jq
+        echo "[SUCCESS]: jq is now installed !!!"
+    fi
+    
+    # Validate and install helm
+    if ! command -v helm > /dev/null; then
+        echo "[INFO]:..........Installing helm........."
+        curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        validate_command helm
+        echo "[SUCCESS]: helm is now installed !!!"
+    fi
+    
+    # Validate and install k3s
+    if ! command -v k3s > /dev/null; then
+        echo "[INFO]:..........Installing k3s........."
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server" sh -s - --node-external-ip $NODE_EXT_IP
+        mkdir -p /home/chronicle/.kube
+        sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
+        sudo chown chronicle:chronicle -R /home/chronicle/.kube
+        sudo chmod 600 /home/chronicle/.kube/config
+        echo "export KUBECONFIG=/home/chronicle/.kube/config " >> /home/chronicle/.bashrc
+        source "/home/chronicle/.bashrc"
+        validate_command k3s
+        echo "[SUCCESS]: k3s is now installed !!!"
+    fi
+    
+    # Validate and install keeman
+    if ! command -v keeman > /dev/null; then
+        echo "[INFO]:..........Installing keeman........."
+        wget https://github.com/chronicleprotocol/keeman/releases/download/v0.4.1/keeman_0.4.1_linux_amd64.tar.gz -O - | tar -xz
+        sudo mv keeman /usr/local/bin
+        validate_command keeman
+        echo "[SUCCESS]: keeman is now installed !!!"
+    fi
 }
+
 
 create_namespace() {
     validate_vars
@@ -159,14 +211,84 @@ collect_vars() {
 
 generate_values() {
     validate_vars
-    cat <<EOF > /home/chronicle/"${FEED_NAME}"/generated-values.yaml
-# ... (rest of the function as before)
+    
+    # Ensure the directory exists
+    DIRECTORY_PATH="/home/chronicle/${FEED_NAME}"
+    mkdir -p "$DIRECTORY_PATH" || {
+        echo "[ERROR]: Unable to create directory $DIRECTORY_PATH"
+        exit 1
+    }
+    
+    # Check if the directory was created successfully
+    if [ ! -d "$DIRECTORY_PATH" ]; then
+        echo "[ERROR]: Directory $DIRECTORY_PATH does not exist and failed to be created"
+        exit 1
+    fi
+    
+    # Generate the values.yaml file
+    VALUES_FILE="$DIRECTORY_PATH/generated-values.yaml"
+    cat <<EOF > "$VALUES_FILE"
+ghost:
+  ethConfig:
+    ethFrom:
+      existingSecret: '${FEED_NAME}-eth-keys'
+      key: "ethFrom"
+    ethKeys:
+      existingSecret: '${FEED_NAME}-eth-keys'
+      key: "ethKeyStore"
+    ethPass:
+      existingSecret: '${FEED_NAME}-eth-keys'
+      key: "ethPass"
+
+  env:
+    normal:
+      CFG_LIBP2P_EXTERNAL_ADDR: '/ip4/${NODE_EXT_IP}'
+
+  # ethereum RPC client
+  ethRpcUrl: "${ETH_RPC_URL}"
+  ethChainId: 1
+
+  # default RPC client
+  rpcUrl: "${ETH_RPC_URL}"
+  chainId: 1
+
+musig:
+  ethConfig:
+    ethFrom:
+      existingSecret: '${FEED_NAME}-eth-keys'
+      key: "ethFrom"
+    ethKeys:
+      existingSecret: '${FEED_NAME}-eth-keys'
+      key: "ethKeyStore"
+    ethPass:
+      existingSecret: '${FEED_NAME}-eth-keys'
+      key: "ethPass"
+
+  env:
+    normal:
+      CFG_LIBP2P_EXTERNAL_ADDR: "/ip4/${NODE_EXT_IP}"
+      CFG_WEB_URL: "${TOR_HOSTNAME}"
+
+  ethRpcUrl: "${ETH_RPC_URL}"
+  ethChainId: 1
+
+tor-proxy:
+  torConfig:
+    existingSecret: '${FEED_NAME}-tor-keys'
 EOF
+    
+    # Check if the file was created successfully
+    if [ ! -f "$VALUES_FILE" ]; then
+        echo "[ERROR]: Failed to create $VALUES_FILE"
+        exit 1
+    fi
+    
     echo "You need to install the helm chart with the following command:"
     echo "-------------------------------------------------------------------------------------------------------------------------------"
-    echo "|   helm install "$FEED_NAME" -f /home/chronicle/"$FEED_NAME"/generated-values.yaml  chronicle/feed --namespace "$FEED_NAME"       |"
+    echo "|   helm install \"$FEED_NAME\" -f \"$VALUES_FILE\"  chronicle/feed --namespace \"$FEED_NAME\"       |"
     echo "-------------------------------------------------------------------------------------------------------------------------------"
 }
+
 
 main() {
     echo "[INFO]:..........running preflight checks........."
