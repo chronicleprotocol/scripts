@@ -53,6 +53,32 @@ create_user() {
     echo "[NOTICE]: User chronicle created with no password and added to the sudoers group."
 }
 
+get_public_ip() {
+    # Try using dig +short myip.opendns.com @resolver1.opendns.com
+    PUBLIC_IP=$(dig +short myip.opendns.com @resolver1.opendns.com)
+    if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "$PUBLIC_IP"
+        return
+    fi
+    
+    # Fallback to curl ifconfig.me
+    PUBLIC_IP=$(curl -s ifconfig.me)
+    if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "$PUBLIC_IP"
+        return
+    fi
+    
+    # Fallback to curl icanhazip.com
+    PUBLIC_IP=$(curl -s icanhazip.com)
+    if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "$PUBLIC_IP"
+        return
+    fi
+    
+    echo "[ERROR]: Unable to obtain public IP address!"
+    exit 1
+}
+
 install_deps() {
     sudo apt-get update -y
     validate_command jq
@@ -124,8 +150,9 @@ collect_vars() {
         read -r KEYSTORE_FILE
     fi
     if [ -z "${NODE_EXT_IP:-}" ]; then
-        echo ">> Enter the Node External IP:"
-        read -r NODE_EXT_IP
+        echo ">> Obtaining the Node External IP..."
+        NODE_EXT_IP=$(get_public_ip)
+        echo ">> Node External IP is $NODE_EXT_IP"
     fi
     validate_vars
 }
