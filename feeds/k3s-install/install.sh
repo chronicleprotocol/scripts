@@ -1,7 +1,24 @@
 #!/bin/bash
 set -euo pipefail # Enable strict mode for bash
 
-trap 'echo -e "\e[31m[ERROR]: Script failed at line $LINENO with status $?\e[0m"' ERR
+LOG_FILE="installer-crash.log"
+
+trap 'handle_error $LINENO' ERR
+
+handle_error() {
+    echo -e "\e[31m[ERROR]: Script failed at line $1 with status $?\e[0m" | tee -a "$LOG_FILE"
+    echo "OS Version: $(lsb_release -rs)" | tee -a "$LOG_FILE"
+    echo "User: $USER" | tee -a "$LOG_FILE"
+    echo "Date: $(date)" | tee -a "$LOG_FILE"
+    # Log environment variables, but be cautious with sensitive information
+    echo "FEED_NAME: $FEED_NAME" | tee -a "$LOG_FILE"
+    echo "ETH_FROM: $ETH_FROM" | tee -a "$LOG_FILE"
+    echo "ETH_PASS: $ETH_PASS" | tee -a "$LOG_FILE"
+    echo "KEYSTORE_FILE: $KEYSTORE_FILE" | tee -a "$LOG_FILE"
+    echo "NODE_EXT_IP: $NODE_EXT_IP" | tee -a "$LOG_FILE"
+    echo "ETH_RPC_URL: $ETH_RPC_URL" | tee -a "$LOG_FILE"
+}
+
 
 # Source the .env file if it exists
 if [ -f ".env" ]; then
@@ -77,7 +94,7 @@ install_deps() {
     echo -e "\e[32m[INFO]:..........Updating package lists for upgrades and new package installations.........\e[0m"
     sudo apt-get update -y
     
-    for cmd in dig curl jq helm k3s keeman; do
+    for cmd in dig curl jq; do
         if ! command -v $cmd > /dev/null; then
             echo -e "\e[32m[INFO]:..........Installing $cmd.........\e[0m"
             sudo apt-get install -y $cmd
@@ -85,6 +102,41 @@ install_deps() {
             echo -e "\e[32m[SUCCESS]: $cmd is now installed !!!\e[0m"
         fi
     done
+
+    # Validate and install helm
+    if ! command -v helm > /dev/null; then
+        echo -e "\e[32m[INFO]:..........Installing helm.........\e[0m"
+        curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        validate_command helm
+        echo -e "\e[32m[SUCCESS]: helm is now installed !!!\e[0m"
+    fi
+    
+    # Validate and install k3s
+    if ! command -v k3s > /dev/null; then
+        if [ -z "${NODE_EXT_IP:-}" ]; then
+            echo -e "\e[31m[ERROR]: NODE_EXT_IP is not set! Exiting...\e[0m"
+            exit 1
+        fi
+        echo -e "\e[32m[INFO]:..........Installing k3s.........\e[0m"
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server" sh -s - --node-external-ip $NODE_EXT_IP
+        mkdir -p /home/chronicle/.kube
+        sudo cp /etc/rancher/k3s/k3s.yaml /home/chronicle/.kube/config
+        sudo chown chronicle:chronicle -R /home/chronicle/.kube
+        sudo chmod 600 /home/chronicle/.kube/config
+        echo "export KUBECONFIG=/home/chronicle/.kube/config " >> /home/chronicle/.bashrc
+        source "/home/chronicle/.bashrc"
+        validate_command k3s
+        echo -e "\e[32m[SUCCESS]: k3s is now installed !!!\e[0m"
+    fi
+    
+    # Validate and install keeman
+    if ! command -v keeman > /dev/null; then
+        echo -e "\e[32m[INFO]:..........Installing keeman.........\e[0m"
+        wget https://github.com/chronicleprotocol/keeman/releases/download/v0.4.1/keeman_0.4.1_linux_amd64.tar.gz -O - | tar -xz
+        sudo mv keeman /usr/local/bin
+        validate_command keeman
+        echo -e "\e[32m[SUCCESS]: keeman is now installed !!!\e[0m"
+    fi
 }
 
 set_kubeconfig() {
