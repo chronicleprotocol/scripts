@@ -112,4 +112,13 @@ main() {
     create_namespace
     echo -e "\e[32m[INFO]:..........create secret with ETH keys..........\e[0m"
     create_eth_secret
-    echo -e "\e[32m[
+    echo -e "\e[32m[INFO]:..........create secret with TOR keys..........\e[0m"
+    create_tor_secret
+    echo -e "\e[32m[INFO]:..........generate helm values file..........\e[0m"
+    generate_values
+    echo -e "\e[32m[INFO]:..........create helm release..........\e[0m"
+    create_helm_release
+    echo -e "\e[33m[NOTICE]: setup complete!\e[0m"
+}
+
+main "$@"
