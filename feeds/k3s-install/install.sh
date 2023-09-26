@@ -157,34 +157,55 @@ collect_vars() {
         echo ">> Enter your ETH Address (eg: 0x3a...):"
         read -r ETH_FROM
     fi
-    if [ -z "${ETH_PASS:-}" ]; then
-        echo ">> Enter the path to your ETH password file (eg: /path/to/password.txt):"
-        read -r ETH_PASS
-    fi
     if [ -z "${KEYSTORE_FILE:-}" ]; then
-        echo ">> Enter the path to your ETH keystore (eg: /path/to/keystore.json):"
-        read -r KEYSTORE_FILE
+        while true; do
+            echo ">> Enter the path to your ETH keystore (eg: /path/to/keystore.json):"
+            read -r KEYSTORE_FILE
+            if sudo test -f "$KEYSTORE_FILE"; then
+                break
+            else
+                echo -e "\e[31m[ERROR]: The file $KEYSTORE_FILE does not exist! Please enter a valid file path.\e[0m"
+            fi
+        done
+    fi
+
+    if [ -z "${ETH_PASS:-}" ]; then
+        while true; do
+            echo ">> Enter the path to your ETH password file (eg: /path/to/password.txt):"
+            read -r ETH_PASS
+            if sudo test -f "$ETH_PASS"; then
+                break
+            else
+                echo -e "\e[31m[ERROR]: The file $ETH_PASS does not exist! Please enter a valid file path.\e[0m"
+            fi
+        done
     fi
     if [ -z "${NODE_EXT_IP:-}" ]; then
         echo ">> Obtaining the Node External IP..."
         NODE_EXT_IP=$(get_public_ip)
         echo ">> Node External IP is $NODE_EXT_IP"
     fi
-        if [ -z "${ETH_RPC_URL:-}" ]; then
-        echo ">> Enter your ETH rpc endpoint (eg: https://eth.llamarpc.com):"
-        read -r ETH_RPC_URL
+    if [ -z "${ETH_RPC_URL:-}" ]; then
+        while true; do
+            echo ">> Enter your ETH rpc endpoint (eg: https://eth.llamarpc.com):"
+            read -r ETH_RPC_URL
+            if [[ "$ETH_RPC_URL" =~ ^https?:// ]]; then
+                break
+            else
+                echo -e "\e[31m[ERROR]: The URL must start with http:// or https://\e[0m"
+            fi
+        done
     fi
-    
     validate_vars
 }
 
 create_namespace() {
     set_kubeconfig
     if kubectl get namespace "$FEED_NAME" > /dev/null 2>&1; then
-        echo -e "\e[33m[WARNING]: Namespace $FEED_NAME already exists!\e[0m"
+        echo -e "\e[33m[WARN]: Namespace $FEED_NAME already exists!\e[0m"
         read -p "Would you like to continue using the existing namespace? (y/n): " -r
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo -e "\e[33m[NOTICE]: User chose not to use the existing namespace $FEED_NAME. Please choose a different namespace name if needed.\e[0m"
+            echo -e "\e[33m[NOTICE]: User chose not to use the existing namespace $FEED_NAME. Please change the value of FEED_NAME if needed.\e[0m"
             return 1
         fi
     else
@@ -202,7 +223,7 @@ create_eth_secret() {
     
     # Check if the secret already exists
     if kubectl get secret $FEED_NAME-eth-keys --namespace $FEED_NAME > /dev/null 2>&1; then
-        echo -e "\e[33m[NOTICE]: Secret $FEED_NAME-eth-keys already exists. Updating...\e[0m"
+        echo -e "\e[33m[WARN]: Secret $FEED_NAME-eth-keys already exists. Updating...\e[0m"
         kubectl delete secret $FEED_NAME-eth-keys --namespace $FEED_NAME
     fi
     
@@ -225,11 +246,17 @@ create_eth_secret() {
 create_tor_secret() {
     set_kubeconfig
     validate_vars
-    keeman gen | tee >(cat >&2) | keeman derive -f onion > $HOME/$FEED_NAME/torkeys.json
+
+    # Check if torkeys.json already exists
+    if [ ! -f "$HOME/$FEED_NAME/torkeys.json" ]; then
+        keeman gen | tee >(cat >&2) | keeman derive -f onion > "$HOME/$FEED_NAME/torkeys.json"
+    else
+        echo -e "\e[33m[INFO]: Using existing torkeys.json file.\e[0m"
+    fi
     
     # Check if the secret already exists
     if kubectl get secret $FEED_NAME-tor-keys --namespace $FEED_NAME > /dev/null 2>&1; then
-        echo -e "\e[33m[NOTICE]: Secret $FEED_NAME-tor-keys already exists. Updating...\e[0m"
+        echo -e "\e[33m[WARN]: Secret $FEED_NAME-tor-keys already exists. Updating...\e[0m"
         kubectl delete secret $FEED_NAME-tor-keys --namespace $FEED_NAME
     fi
     
@@ -340,15 +367,15 @@ create_helm_release() {
         
         case "$choice" in
             1)
-                echo -e "\e[33m[INFO]: Attempting to upgrade existing feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
+                echo -e "\e[33m[WARN]: Attempting to upgrade existing feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
                 helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/feed --namespace "$FEED_NAME"
                 ;;
             2)
-                echo -e "\e[33m[INFO]: Terminating the script as per user request.\e[0m"
+                echo -e "\e[33m[WARN]: Terminating the script as per user request.\e[0m"
                 exit 0
                 ;;
             3)
-                echo -e "\e[33m[INFO]: Deleting the release, and installing again.\e[0m"
+                echo -e "\e[33m[WARN]: Deleting the release, and installing again.\e[0m"
                 helm uninstall "$FEED_NAME" --namespace "$FEED_NAME"
                 helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/feed --namespace "$FEED_NAME"
                 ;;
@@ -385,7 +412,7 @@ main() {
     generate_values
     echo -e "\e[32m[INFO]:..........create helm release..........\e[0m"
     create_helm_release
-    echo -e "\e[33m[NOTICE]: setup complete!\e[0m"
+    echo -e "\e[33m[SUCCESS]: setup complete!\e[0m"
 }
 
 main "$@"
