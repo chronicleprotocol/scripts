@@ -44,7 +44,7 @@ validate_vars() {
 
 validate_os() {
     OS_VERSION=$(lsb_release -rs)
-    if [ "$OS_VERSION" != "22.04" ]; then
+    if [[ ! "$OS_VERSION" =~ ^(22\.04|23\.04)$ ]]; then
         echo -e "\e[31m[ERROR]: This script is designed for Ubuntu 22.04!\e[0m"
         exit 1
     fi
@@ -53,7 +53,23 @@ validate_os() {
 validate_user() {
     if [ "$USER" == "root" ]; then
         echo -e "\e[31m[ERROR]: This script should not be run as root!\e[0m"
-        exit 1
+        echo "Would you like to create a new user to run this script? (y/n)"
+        read -r response
+        if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+            echo "Enter the username for the new user:"
+            read -r new_user
+            sudo useradd -m -s /bin/bash "$new_user"
+            sudo passwd "$new_user"
+            sudo usermod -aG sudo "$new_user"
+            echo "$new_user ALL=(ALL) NOPASSWD:ALL" | sudo tee -a /etc/sudoers
+            echo -e "\e[32m[INFO]: User $new_user created and added to the sudoers group. Please log in as $new_user and run the script again.\e[0m"
+            echo -e "\e[33m[NOTICE]: You may need to log in anew or start a new terminal session as $new_user for the group changes to take effect.\e[0m"
+
+            exit 0
+        else
+            echo -e "\e[31m[ERROR]: Please run the script as a non-root user with sudo privileges.\e[0m"
+            exit 1
+        fi
     fi
 }
 
@@ -154,8 +170,15 @@ collect_vars() {
         read -r FEED_NAME
     fi
     if [ -z "${ETH_FROM:-}" ]; then
-        echo ">> Enter your ETH Address (eg: 0x3a...):"
-        read -r ETH_FROM
+        while true; do
+            echo ">> Enter your ETH Address (eg: 0x3a...):"
+            read -r ETH_FROM
+            if [[ "$ETH_FROM" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+                break
+            else
+                echo -e "\e[31m[ERROR]: Invalid ETH Address! It should start with 0x and be 42 characters long.\e[0m"
+            fi
+        done
     fi
     if [ -z "${KEYSTORE_FILE:-}" ]; then
         while true; do
