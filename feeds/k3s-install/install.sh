@@ -15,7 +15,7 @@ handle_error() {
     [[ -n "${FEED_NAME:-}" ]] && echo "FEED_NAME: $FEED_NAME" | tee -a "$LOG_FILE"
     [[ -n "${ETH_FROM:-}" ]] && echo "ETH_FROM: $ETH_FROM" | tee -a "$LOG_FILE"
     [[ -n "${ETH_PASS:-}" ]] && echo "ETH_PASS: $ETH_PASS" | tee -a "$LOG_FILE"
-    [[ -n "${KEYSTORE_FILE:-}" ]] && echo "KEYSTORE_FILE: $KEYSTORE_FILE" | tee -a "$LOG_FILE"
+    [[ -n "${ETH_KEYSTORE:-}" ]] && echo "ETH_KEYSTORE: $ETH_KEYSTORE" | tee -a "$LOG_FILE"
     [[ -n "${ETH_RPC_URL:-}" ]] && echo "ETH_RPC_URL: $ETH_RPC_URL" | tee -a "$LOG_FILE"
     [[ -n "${NODE_EXT_IP:-}" ]] && echo "ETH_RPC_URL: $NODE_EXT_IP" | tee -a "$LOG_FILE"
 }
@@ -31,11 +31,11 @@ display_usage() {
     echo "======"
     echo "./install.sh"
     echo "# follow the prompts if variables are not set in .env file"
-    echo "required: FEED_NAME, ETH_FROM, ETH_PASS, KEYSTORE_FILE, NODE_EXT_IP, ETH_RPC_URL"
+    echo "required: FEED_NAME, ETH_FROM, ETH_PASS, ETH_KEYSTORE, NODE_EXT_IP, ETH_RPC_URL"
 }
 
 validate_vars() {
-    if [[ -z "${FEED_NAME:-}" || -z "${ETH_FROM:-}" || -z "${ETH_PASS:-}" || -z "${KEYSTORE_FILE:-}" || -z "${NODE_EXT_IP:-}" || -z "${ETH_RPC_URL:-}" ]]; then
+    if [[ -z "${FEED_NAME:-}" || -z "${ETH_FROM:-}" || -z "${ETH_PASS:-}" || -z "${ETH_KEYSTORE:-}" || -z "${NODE_EXT_IP:-}" || -z "${ETH_RPC_URL:-}" ]]; then
         echo -e "\e[31m[ERROR]: All variables are required!\e[0m"
         display_usage
         exit 1
@@ -140,8 +140,9 @@ install_deps() {
         sudo cp /etc/rancher/k3s/k3s.yaml $HOME/.kube/config
         sudo chown $USER:$USER -R $HOME/.kube
         sudo chmod 600 $HOME/.kube/config
-        echo "export KUBECONFIG=$HOME/.kube/config " >> $HOME/.bashrc
-        source "$HOME/.bashrc"
+        echo "export KUBECONFIG=$HOME/.kube/config" >> $HOME/.bashrc
+        echo "source <(kubectl completion bash)" >> $HOME/.bashrc
+        source $HOME/.bashrc
         validate_command k3s
         echo -e "\e[32m[SUCCESS]: k3s is now installed !!!\e[0m"
     fi
@@ -180,14 +181,14 @@ collect_vars() {
             fi
         done
     fi
-    if [ -z "${KEYSTORE_FILE:-}" ]; then
+    if [ -z "${ETH_KEYSTORE:-}" ]; then
         while true; do
             echo ">> Enter the path to your ETH keystore (eg: /path/to/keystore.json):"
-            read -r KEYSTORE_FILE
-            if sudo test -f "$KEYSTORE_FILE"; then
+            read -r ETH_KEYSTORE
+            if sudo test -f "$ETH_KEYSTORE"; then
                 break
             else
-                echo -e "\e[31m[ERROR]: The file $KEYSTORE_FILE does not exist! Please enter a valid file path.\e[0m"
+                echo -e "\e[31m[ERROR]: The file $ETH_KEYSTORE does not exist! Please enter a valid file path.\e[0m"
             fi
         done
     fi
@@ -241,7 +242,7 @@ create_eth_secret() {
     set_kubeconfig
     validate_vars
     ETH_PASS_CONTENT=$(sudo cat $ETH_PASS)
-    sudo cp $KEYSTORE_FILE $HOME/$FEED_NAME/keystore.json
+    sudo cp $ETH_KEYSTORE $HOME/$FEED_NAME/keystore.json
     sudo chown $USER:$USER -R $HOME/$FEED_NAME
     
     # Check if the secret already exists
@@ -317,6 +318,7 @@ generate_values() {
     VALUES_FILE="$DIRECTORY_PATH/generated-values.yaml"
     cat <<EOF > "$VALUES_FILE"
 ghost:
+  logLevel: "${LOG_LEVEL:-warning}"
   ethConfig:
     ethFrom:
       existingSecret: '${FEED_NAME}-eth-keys'
@@ -339,6 +341,7 @@ ghost:
   chainId: 1
 
 musig:
+  logLevel: "${LOG_LEVEL:-warning}"
   ethConfig:
     ethFrom:
       existingSecret: '${FEED_NAME}-eth-keys'
