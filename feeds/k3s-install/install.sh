@@ -10,11 +10,11 @@ handle_error() {
     echo "OS Version: $(lsb_release -rs)" | tee -a "$LOG_FILE"
     echo "User: $USER" | tee -a "$LOG_FILE"
     echo "Date: $(date)" | tee -a "$LOG_FILE"
-    
+
     # Log environment variables, but be cautious with sensitive information
     [[ -n "${FEED_NAME:-}" ]] && echo "FEED_NAME: $FEED_NAME" | tee -a "$LOG_FILE"
     [[ -n "${ETH_FROM:-}" ]] && echo "ETH_FROM: $ETH_FROM" | tee -a "$LOG_FILE"
-    [[ -n "${ETH_PASS:-}" ]] && echo "ETH_PASS: $ETH_PASS" | tee -a "$LOG_FILE"
+    [[ -n "${ETH_PASSWORD:-}" ]] && echo "ETH_PASSWORD: $ETH_PASSWORD" | tee -a "$LOG_FILE"
     [[ -n "${ETH_KEYSTORE:-}" ]] && echo "ETH_KEYSTORE: $ETH_KEYSTORE" | tee -a "$LOG_FILE"
     [[ -n "${ETH_RPC_URL:-}" ]] && echo "ETH_RPC_URL: $ETH_RPC_URL" | tee -a "$LOG_FILE"
     [[ -n "${NODE_EXT_IP:-}" ]] && echo "ETH_RPC_URL: $NODE_EXT_IP" | tee -a "$LOG_FILE"
@@ -31,11 +31,11 @@ display_usage() {
     echo "======"
     echo "./install.sh"
     echo "# follow the prompts if variables are not set in .env file"
-    echo "required: FEED_NAME, ETH_FROM, ETH_PASS, ETH_KEYSTORE, NODE_EXT_IP, ETH_RPC_URL"
+    echo "required: FEED_NAME, ETH_FROM, ETH_PASSWORD, ETH_KEYSTORE, NODE_EXT_IP, ETH_RPC_URL"
 }
 
 validate_vars() {
-    if [[ -z "${FEED_NAME:-}" || -z "${ETH_FROM:-}" || -z "${ETH_PASS:-}" || -z "${ETH_KEYSTORE:-}" || -z "${NODE_EXT_IP:-}" || -z "${ETH_RPC_URL:-}" ]]; then
+    if [[ -z "${FEED_NAME:-}" || -z "${ETH_FROM:-}" || -z "${ETH_PASSWORD:-}" || -z "${ETH_KEYSTORE:-}" || -z "${NODE_EXT_IP:-}" || -z "${ETH_RPC_URL:-}" ]]; then
         echo -e "\e[31m[ERROR]: All variables are required!\e[0m"
         display_usage
         exit 1
@@ -110,7 +110,7 @@ get_public_ip() {
 install_deps() {
     echo -e "\e[32m[INFO]:..........Updating package lists for upgrades and new package installations.........\e[0m"
     sudo apt-get update -y
-    
+
     for cmd in dig curl jq; do
         if ! command -v $cmd > /dev/null; then
             echo -e "\e[32m[INFO]:..........Installing $cmd.........\e[0m"
@@ -127,7 +127,7 @@ install_deps() {
         validate_command helm
         echo -e "\e[32m[SUCCESS]: helm is now installed !!!\e[0m"
     fi
-    
+
     # Validate and install k3s
     if ! command -v k3s > /dev/null; then
         if [ -z "${NODE_EXT_IP:-}" ]; then
@@ -146,7 +146,7 @@ install_deps() {
         validate_command k3s
         echo -e "\e[32m[SUCCESS]: k3s is now installed !!!\e[0m"
     fi
-    
+
     # Validate and install keeman
     if ! command -v keeman > /dev/null; then
         echo -e "\e[32m[INFO]:..........Installing keeman.........\e[0m"
@@ -193,14 +193,14 @@ collect_vars() {
         done
     fi
 
-    if [ -z "${ETH_PASS:-}" ]; then
+    if [ -z "${ETH_PASSWORD:-}" ]; then
         while true; do
             echo ">> Enter the path to your ETH password file (eg: /path/to/password.txt):"
-            read -r ETH_PASS
-            if sudo test -f "$ETH_PASS"; then
+            read -r ETH_PASSWORD
+            if sudo test -f "$ETH_PASSWORD"; then
                 break
             else
-                echo -e "\e[31m[ERROR]: The file $ETH_PASS does not exist! Please enter a valid file path.\e[0m"
+                echo -e "\e[31m[ERROR]: The file $ETH_PASSWORD does not exist! Please enter a valid file path.\e[0m"
             fi
         done
     fi
@@ -241,26 +241,26 @@ create_namespace() {
 create_eth_secret() {
     set_kubeconfig
     validate_vars
-    ETH_PASS_CONTENT=$(sudo cat $ETH_PASS)
+    ETH_PASSWORD_CONTENT=$(sudo cat $ETH_PASSWORD)
     sudo cp $ETH_KEYSTORE $HOME/$FEED_NAME/keystore.json
     sudo chown $USER:$USER -R $HOME/$FEED_NAME
-    
+
     # Check if the secret already exists
     if kubectl get secret $FEED_NAME-eth-keys --namespace $FEED_NAME > /dev/null 2>&1; then
         echo -e "\e[33m[WARN]: Secret $FEED_NAME-eth-keys already exists. Updating...\e[0m"
         kubectl delete secret $FEED_NAME-eth-keys --namespace $FEED_NAME
     fi
-    
+
     # Create or update the secret
     kubectl create secret generic $FEED_NAME-eth-keys \
     --from-file=ethKeyStore=$HOME/$FEED_NAME/keystore.json \
     --from-literal=ethFrom=$ETH_FROM \
-    --from-literal=ethPass=$ETH_PASS_CONTENT \
+    --from-literal=ethPass=$ETH_PASSWORD_CONTENT \
     --namespace $FEED_NAME || {
         echo -e "\e[31m[ERROR]: Failed to create/update secret $FEED_NAME-eth-keys\e[0m"
         exit 1
     }
-    
+
     echo -e "\e[33m-----------------------------------------------------------------------------------------------------\e[0m"
     echo -e "\e[33mThis is your Feed address:\e[0m"
     echo -e "\e[33m$ETH_FROM\e[0m"
@@ -277,13 +277,13 @@ create_tor_secret() {
     else
         echo -e "\e[33m[INFO]: Using existing torkeys.json file.\e[0m"
     fi
-    
+
     # Check if the secret already exists
     if kubectl get secret $FEED_NAME-tor-keys --namespace $FEED_NAME > /dev/null 2>&1; then
         echo -e "\e[33m[WARN]: Secret $FEED_NAME-tor-keys already exists. Updating...\e[0m"
         kubectl delete secret $FEED_NAME-tor-keys --namespace $FEED_NAME
     fi
-    
+
     # Create or update the secret
     kubectl create secret generic $FEED_NAME-tor-keys \
         --from-literal=hostname="$(jq -r '.hostname' < $HOME/$FEED_NAME/torkeys.json)" \
@@ -293,7 +293,7 @@ create_tor_secret() {
         echo -e "\e[31m[ERROR]: Failed to create/update secret $FEED_NAME-tor-keys\e[0m"
         exit 1
     }
-    
+
     declare -g TOR_HOSTNAME="$(jq -r '.hostname' < $HOME/$FEED_NAME/torkeys.json)"
     echo -e "\e[33m-----------------------------------------------------------------------------------------------------\e[0m"
     echo -e "\e[33mThis is your .onion address:\e[0m"
@@ -303,18 +303,18 @@ create_tor_secret() {
 
 generate_values() {
     validate_vars
-    
+
     DIRECTORY_PATH="$HOME/${FEED_NAME}"
     mkdir -p "$DIRECTORY_PATH" || {
         echo -e "\e[31m[ERROR]: Unable to create directory $DIRECTORY_PATH\e[0m"
         exit 1
     }
-    
+
     if [ ! -d "$DIRECTORY_PATH" ]; then
         echo -e "\e[31m[ERROR]: Directory $DIRECTORY_PATH does not exist and failed to be created\e[0m"
         exit 1
     fi
-    
+
     VALUES_FILE="$DIRECTORY_PATH/generated-values.yaml"
     cat <<EOF > "$VALUES_FILE"
 ghost:
@@ -365,12 +365,12 @@ tor-proxy:
   torConfig:
     existingSecret: '${FEED_NAME}-tor-keys'
 EOF
-    
+
     if [ ! -f "$VALUES_FILE" ]; then
         echo -e "\e[31m[ERROR]: Failed to create $VALUES_FILE\e[0m"
         exit 1
     fi
-    
+
     echo "You need to install the helm chart with the following command:"
     echo -e "\e[33m-------------------------------------------------------------------------------------------------------------------------------\e[0m"
     echo -e "\e[33m|   helm install \"$FEED_NAME\" -f \"$VALUES_FILE\"  chronicle/feed --namespace \"$FEED_NAME\"       |\e[0m"
@@ -382,7 +382,7 @@ create_helm_release() {
     validate_vars
     helm repo add chronicle https://chronicleprotocol.github.io/charts/
     helm repo update
-    
+
     # Check if release already exists in the specified namespace
     if helm list -n "$FEED_NAME" | grep -q "^$FEED_NAME"; then
         echo -e "\e[33m[WARNING]: Helm release $FEED_NAME already exists in namespace $FEED_NAME.\e[0m"
@@ -390,7 +390,7 @@ create_helm_release() {
         echo "2) Terminate the script"
         echo "3) Delete the release and install again"
         read -p "Enter your choice [1/2/3]: " choice
-        
+
         case "$choice" in
             1)
                 echo -e "\e[33m[WARN]: Attempting to upgrade existing feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
