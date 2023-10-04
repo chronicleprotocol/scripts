@@ -88,18 +88,22 @@ validate_sudo() {
 }
 
 get_public_ip() {
-    PUBLIC_IP=$(dig +short myip.opendns.com @resolver1.opendns.com)
+    PUBLIC_IP=$(dig +short -4 myip.opendns.com @resolver1.opendns.com)
     if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo "$PUBLIC_IP"
         return
     fi
-    PUBLIC_IP=$(curl -s ifconfig.me)
+    PUBLIC_IP=$(curl -4s ifconfig.me)
     if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo "$PUBLIC_IP"
         return
     fi
-    PUBLIC_IP=$(curl -s icanhazip.com)
+    PUBLIC_IP=$(curl -4s icanhazip.com)
     if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "$PUBLIC_IP"
+        return
+    fi
+    if [[ -n "$PUBLIC_IP" && "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo "$PUBLIC_IP"
         return
     fi
@@ -371,10 +375,9 @@ EOF
         exit 1
     fi
 
-    echo "You need to install the helm chart with the following command:"
-    echo -e "\e[33m-------------------------------------------------------------------------------------------------------------------------------\e[0m"
-    echo -e "\e[33m|   helm install \"$FEED_NAME\" -f \"$VALUES_FILE\"  chronicle/feed --namespace \"$FEED_NAME\"       |\e[0m"
-    echo -e "\e[33m-------------------------------------------------------------------------------------------------------------------------------\e[0m"
+    echo -e "\e[33m---------------------------------------------------------------------------------------------------------------------------------------\e[0m"
+    echo -e "\e[33m| Script will attempt to run  '\e[31m helm install \"$FEED_NAME\" -f \"$VALUES_FILE\"  chronicle/feed --namespace \"$FEED_NAME\"'    |\e[0m"
+    echo -e "\e[33m---------------------------------------------------------------------------------------------------------------------------------------\e[0m"
 }
 
 create_helm_release() {
