@@ -44,8 +44,8 @@ validate_vars() {
 
 validate_os() {
     OS_VERSION=$(lsb_release -rs)
-    if [[ ! "$OS_VERSION" =~ ^(22\.04|23\.04)(\..*)?$ ]]; then
-        echo -e "\e[31m[ERROR]: This script is designed for Ubuntu 22.04 and 23.04!\e[0m"
+    if [[ ! "$OS_VERSION" =~ ^(22\.04|23\.04|23\.10)(\..*)?$ ]]; then
+        echo -e "\e[31m[ERROR]: This script is designed for Ubuntu 22.04 and 23.04/23.10!\e[0m"
         exit 1
     fi
 }
