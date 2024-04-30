@@ -18,7 +18,8 @@ display_usage() {
     echo -e "\e[33m[NOTICE]: Usage:\e[0m"
     echo "======"
     echo "./upgrade.sh"
-    echo "# export FEED_NAME=<MY_FEED_NAME>, set in .env file"
+    echo "# export FEED_NAME=<MY_FEED_NAME>"
+    echo "can be set in .env file or exporter in the environment"
     echo "required: FEED_NAME"
 }
 
@@ -68,11 +69,25 @@ validate_command() {
 sanitize_values() {
     echo -e "\e[32m[INFO]:..........Creating backup of generated-values.yaml.........\e[0m"
     # create a backup of the current generated-values.yaml as generated-values.yaml.bak
-    helm get values $FEED_NAME -n $FEED_NAME  > $HOME/$FEED_NAME/generated-values.yaml.bak
+    helm get values $FEED_NAME -n $FEED_NAME  > $HOME/$FEED_NAME/generated-values.yaml.${EPOCH}-HELM_BACKUP
+    cp $HOME/$FEED_NAME/generated-values.yaml  $HOME/$FEED_NAME/generated-values.yaml.${EPOCH}-bak
 
     echo -e "\e[32m[INFO]:..........Sanitizing generated-values.yaml.........\e[0m"
-    # remove .Values.musig from generated-values.yaml
-    yq -y -i 'del(."musig")' $HOME/$FEED_NAME/generated-values.yaml
+    # Read the YAML file
+    yaml_file="generated-values.yaml"
+    yaml_content=$(<"$yaml_file")
+    
+    # Extract the value of musig.env.normal.CFG_WEB_URL
+    musig_web_url=$(echo "$yaml_content" | yq '.musig.env.normal.CFG_WEB_URL' -)
+    
+    # Create a new YAML structure with the updated value
+    new_yaml=$(echo "$yaml_content" | yq -y \
+        ".ghost.env.normal.CFG_WEB_URL = $musig_web_url |
+         del(.musig)")
+    
+    # Write the modified YAML to the file
+    echo "$new_yaml" > "$yaml_file"
+
     # remove .Values.ghost.chainId from generated-values.yaml
     yq -y -i 'del(."ghost"."chainId")' $HOME/$FEED_NAME/generated-values.yaml
     # remove .Values.ghost.ethChainId from generated-values.yaml
