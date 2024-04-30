@@ -81,11 +81,11 @@ sanitize_values() {
 
 create_helm_upgrade() {
     # helm upgrade $FEED_NAME with --debug and --dry-run
-    echo -e "\e[32m[INFO]:..........Upgrading feed: $FEED_NAME in namespace: $FEED_NAME.........\e[0m"
+    echo -e "\e[32m[INFO]:..........DRY RUN UPGRADE feed: $FEED_NAME in namespace: $FEED_NAME.........\e[0m"
     helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --debug --dry-run
 
     # prompt user to confirm upgrade, accept a Y/N
-    echo -e "\e[33m[NOTICE]: Upgrade complete! Do you want to continue with the upgrade? (y/n): "
+    echo -e "\e[33m[NOTICE]: DRY RUN UPGRADE complete! Do you want to continue with the upgrade? (y/n): "
     read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         echo -e "\e[33m[NOTICE]: Upgrading feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
