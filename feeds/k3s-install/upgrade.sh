@@ -74,7 +74,7 @@ sanitize_values() {
 
     echo -e "\e[32m[INFO]:..........Sanitizing generated-values.yaml.........\e[0m"
     # Read the YAML file
-    yaml_file="generated-values.yaml"
+    yaml_file="$HOME/$FEED_NAME/generated-values.yaml"
     yaml_content=$(<"$yaml_file")
     
     # Extract the value of musig.env.normal.CFG_WEB_URL
