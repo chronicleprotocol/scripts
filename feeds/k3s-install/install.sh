@@ -1,7 +1,10 @@
 #!/bin/bash
 set -euo pipefail # Enable strict mode for bash
 
-LOG_FILE="installer-crash.log"
+EPOCH=$(date +%s)
+LOG_FILE="/tmp/installer-crash-${EPOCH}.log"
+
+touch "$LOG_FILE"
 
 trap 'handle_error $LINENO' ERR
 
@@ -44,7 +47,7 @@ validate_vars() {
 
 validate_os() {
     OS_VERSION=$(lsb_release -rs)
-    if [[ ! "$OS_VERSION" =~ ^(22\.04|23\.04)(\..*)?$ ]]; then
+    if [[ ! "$OS_VERSION" =~ ^(22\.*|23\.*|24\.*)(\..*)?$ ]]; then
         echo -e "\e[31m[ERROR]: This script is designed for Ubuntu 22.04 and 23.04!\e[0m"
         exit 1
     fi
@@ -339,31 +342,7 @@ ghost:
       CFG_LIBP2P_EXTERNAL_ADDR: '/ip4/${NODE_EXT_IP}'
 
   ethRpcUrl: "${ETH_RPC_URL}"
-  ethChainId: 1
-
   rpcUrl: "${ETH_RPC_URL}"
-  chainId: 1
-
-musig:
-  logLevel: "${LOG_LEVEL:-warning}"
-  ethConfig:
-    ethFrom:
-      existingSecret: '${FEED_NAME}-eth-keys'
-      key: "ethFrom"
-    ethKeys:
-      existingSecret: '${FEED_NAME}-eth-keys'
-      key: "ethKeyStore"
-    ethPass:
-      existingSecret: '${FEED_NAME}-eth-keys'
-      key: "ethPass"
-
-  env:
-    normal:
-      CFG_LIBP2P_EXTERNAL_ADDR: "/ip4/${NODE_EXT_IP}"
-      CFG_WEB_URL: "${TOR_HOSTNAME}"
-
-  ethRpcUrl: "${ETH_RPC_URL}"
-  ethChainId: 1
 
 tor-proxy:
   torConfig:
@@ -375,9 +354,9 @@ EOF
         exit 1
     fi
 
-    echo -e "\e[33m---------------------------------------------------------------------------------------------------------------------------------------\e[0m"
-    echo -e "\e[33m| Script will attempt to run  '\e[31m helm install \"$FEED_NAME\" -f \"$VALUES_FILE\"  chronicle/feed --namespace \"$FEED_NAME\"'    |\e[0m"
-    echo -e "\e[33m---------------------------------------------------------------------------------------------------------------------------------------\e[0m"
+    echo -e "\e[33m------------------------------------------------------------------------------------------------------------------------------------------\e[0m"
+    echo -e "\e[33m| Script will attempt to run  '\e[31m helm install \"$FEED_NAME\" -f \"$VALUES_FILE\"  chronicle/validator --namespace \"$FEED_NAME\"'    |\e[0m"
+    echo -e "\e[33m-------------------------------------------------------------------------------------------------------------------------------------------\e[0m"
 }
 
 create_helm_release() {
@@ -397,7 +376,7 @@ create_helm_release() {
         case "$choice" in
             1)
                 echo -e "\e[33m[WARN]: Attempting to upgrade existing feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
-                helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/feed --namespace "$FEED_NAME"
+                helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME"
                 ;;
             2)
                 echo -e "\e[33m[WARN]: Terminating the script as per user request.\e[0m"
@@ -406,7 +385,7 @@ create_helm_release() {
             3)
                 echo -e "\e[33m[WARN]: Deleting the release, and installing again.\e[0m"
                 helm uninstall "$FEED_NAME" --namespace "$FEED_NAME"
-                helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/feed --namespace "$FEED_NAME"
+                helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME"
                 ;;
             *)
                 echo -e "\e[31m[ERROR]: Invalid choice. Terminating the script.\e[0m"
@@ -415,7 +394,7 @@ create_helm_release() {
         esac
     else
         echo -e "\e[33m[INFO]: First attempt at installing feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
-        helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/feed --namespace "$FEED_NAME"
+        helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME"
     fi
 }
 
