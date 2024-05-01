@@ -340,6 +340,7 @@ ghost:
   env:
     normal:
       CFG_LIBP2P_EXTERNAL_ADDR: '/ip4/${NODE_EXT_IP}'
+      CFG_WEB_URL: '${TOR_HOSTNAME}'
 
   ethRpcUrl: "${ETH_RPC_URL}"
   rpcUrl: "${ETH_RPC_URL}"
