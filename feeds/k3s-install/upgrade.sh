@@ -116,19 +116,19 @@ sanitize_values() {
 create_helm_upgrade() {
     # helm upgrade $FEED_NAME with --debug and --dry-run
     echo -e "\e[32m[INFO]:..........DRY RUN UPGRADE feed: $FEED_NAME in namespace: $FEED_NAME.........\e[0m"
-    helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --debug --dry-run | tee -a "$LOG_FILE"
+    helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --debug --dry-run
 
     # prompt user to confirm upgrade, accept a Y/N
     echo -e "\e[33m[NOTICE]: DRY RUN UPGRADE complete! Do you want to continue with the upgrade? (y/n): "
-    read -r response | tee -a "$LOG_FILE"
+    read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         echo -e "\e[33m[NOTICE]: Upgrading feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
-        helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" | tee -a "$LOG_FILE"
+        helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME"
     else
         echo -e "\e[33m[NOTICE]: Terminating the script as per user request.\e[0m"
         # print the helm command they will need to run
         echo -e "\e[33m[NOTICE]: You can run the following command to upgrade the feed:\e[0m"
-        echo -e "\e[33m[NOTICE]: helm upgrade $FEED_NAME -f $HOME/$FEED_NAME/generated-values.yaml chronicle/validator --namespace $FEED_NAME\e[0m" | tee -a "$LOG_FILE"
+        echo -e "\e[33m[NOTICE]: helm upgrade $FEED_NAME -f $HOME/$FEED_NAME/generated-values.yaml chronicle/validator --namespace $FEED_NAME\e[0m"
         exit 0
     fi
 }
