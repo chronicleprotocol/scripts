@@ -88,29 +88,37 @@ validate_command() {
 sanitize_values() {
     echo -e "\e[32m[INFO]:..........Creating backup of generated-values.yaml.........\e[0m"
     # create a backup of the current generated-values.yaml as generated-values.yaml.bak
-    helm get values $FEED_NAME -n $FEED_NAME  > $HOME/$FEED_NAME/generated-values.yaml.${EPOCH}-HELM_BACKUP
-    cp $HOME/$FEED_NAME/generated-values.yaml  $HOME/$FEED_NAME/generated-values.yaml.${EPOCH}-bak
+    helm get values "$FEED_NAME" -n "$FEED_NAME" > "$HOME/$FEED_NAME/.generated-values.yaml.${EPOCH}-HELM_BACKUP"
+    cp "$HOME/$FEED_NAME/generated-values.yaml" "$HOME/$FEED_NAME/.generated-values.yaml.${EPOCH}-bak"
 
     echo -e "\e[32m[INFO]:..........Sanitizing generated-values.yaml.........\e[0m"
     # Read the YAML file
     yaml_file="$HOME/$FEED_NAME/generated-values.yaml"
     yaml_content=$(<"$yaml_file")
-    
+
     # Extract the value of musig.env.normal.CFG_WEB_URL
     musig_web_url=$(echo "$yaml_content" | yq '.musig.env.normal.CFG_WEB_URL' -)
-    
-    # Create a new YAML structure with the updated value
-    new_yaml=$(echo "$yaml_content" | yq -y \
-        ".ghost.env.normal.CFG_WEB_URL = $musig_web_url |
-         del(.musig)")
-    
+
+    # Check if musig_web_url is not empty
+    if [[ "$musig_web_url" != "null" ]]; then
+        echo -e "\e[32m[INFO]: .Values.musig present .....Sanitizing generated-values.yaml .....\e[0m"
+        # Create a new YAML structure with the updated value
+        new_yaml=$(echo "$yaml_content" | yq -y \
+            ".ghost.env.normal.CFG_WEB_URL = $musig_web_url")
+    else
+        echo "\e[32m[INFO] .Values.musig not present in the YAML file. Skipping sanitization.\e[0m"
+        new_yaml="$yaml_content"
+    fi
+
     # Write the modified YAML to the file
     echo "$new_yaml" > "$yaml_file"
 
+    # remove .Values.musig from generated-values.yaml
+    yq -y -i 'del(."musig")' "$yaml_file"
     # remove .Values.ghost.chainId from generated-values.yaml
-    yq -y -i 'del(."ghost"."chainId")' $HOME/$FEED_NAME/generated-values.yaml
+    yq -y -i 'del(."ghost"."chainId")' "$yaml_file"
     # remove .Values.ghost.ethChainId from generated-values.yaml
-    yq -y -i 'del(."ghost"."ethChainId")' $HOME/$FEED_NAME/generated-values.yaml
+    yq -y -i 'del(."ghost"."ethChainId")' "$yaml_file"
 }
 
 create_helm_upgrade() {
