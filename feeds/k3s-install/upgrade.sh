@@ -124,6 +124,7 @@ sanitize_values() {
 create_helm_upgrade() {
     # helm upgrade $FEED_NAME with --debug and --dry-run
     echo -e "\e[32m[INFO]:..........DRY RUN UPGRADE feed: $FEED_NAME in namespace: $FEED_NAME.........\e[0m"
+    helm repo update
     helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --debug --dry-run
 
     # prompt user to confirm upgrade, accept a Y/N
