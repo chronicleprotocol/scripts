@@ -75,13 +75,12 @@ validate_user() {
 
 # install yq if not installed
 validate_command() {
-    command -v yq > /dev/null 2>&1 || {
-        echo -e "\e[31m[ERROR]: yq is not installed!\e[0m"  | tee -a "$LOG_FILE"
-        echo -e "\e[32m[INFO]:..........Installing yq.........\e[0m"
-        sudo apt-get update -y
-        sudo apt-get install -y yq
-        validate_command yq
-        echo -e "\e[32m[SUCCESS]: yq is now installed !!!\e[0m"
+    command -v /tmp/yq_linux_amd64 > /dev/null 2>&1 || {
+        echo -e "\e[31m[ERROR]: the yq needed is not available!\e[0m"  | tee -a "$LOG_FILE"
+        echo -e "\e[32m[INFO]:..........Getting yq from github.........\e[0m"
+        wget https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -P /tmp
+        chmod a+x /tmp/yq_linux_amd64
+        echo -e "\e[32m[SUCCESS]: yq is now available in /tmp/yq_linux_amd64 !!!\e[0m"
     }
 }
 
@@ -97,28 +96,20 @@ sanitize_values() {
     yaml_content=$(<"$yaml_file")
 
     # Extract the value of musig.env.normal.CFG_WEB_URL
-    musig_web_url=$(echo "$yaml_content" | yq '.musig.env.normal.CFG_WEB_URL' -)
-
+    musig_web_url=$(echo "$yaml_content" | /tmp/yq_linux_amd64 '.musig.env.normal.CFG_WEB_URL' -)
+    
     # Check if musig_web_url is not empty
     if [[ "$musig_web_url" != "null" ]]; then
         echo -e "\e[32m[INFO]: .Values.musig present .....Sanitizing generated-values.yaml .....\e[0m"
         # Create a new YAML structure with the updated value
-        new_yaml=$(echo "$yaml_content" | yq -y \
-            ".ghost.env.normal.CFG_WEB_URL = $musig_web_url")
+        /tmp/yq_linux_amd64 -i '.ghost.env.normal.CFG_WEB_URL = .musig.env.normal.CFG_WEB_URL' $HOME/$FEED_NAME/generated-values.yaml
+        # remove redunent values from generated-values.yaml
+        /tmp/yq_linux_amd64 -i 'del(.musig)' $HOME/$FEED_NAME/generated-values.yaml
+        /tmp/yq_linux_amd64 -i 'del(.ghost.chainId)' $HOME/$FEED_NAME/generated-values.yaml
+        /tmp/yq_linux_amd64 -i 'del(.ghost.ethChainId)' $HOME/$FEED_NAME/generated-values.yaml
     else
         echo "\e[32m[INFO] .Values.musig not present in the YAML file. Skipping sanitization.\e[0m"
-        new_yaml="$yaml_content"
     fi
-
-    # Write the modified YAML to the file
-    echo "$new_yaml" > "$yaml_file"
-
-    # remove .Values.musig from generated-values.yaml
-    yq -y -i 'del(."musig")' "$yaml_file"
-    # remove .Values.ghost.chainId from generated-values.yaml
-    yq -y -i 'del(."ghost"."chainId")' "$yaml_file"
-    # remove .Values.ghost.ethChainId from generated-values.yaml
-    yq -y -i 'del(."ghost"."ethChainId")' "$yaml_file"
 }
 
 create_helm_upgrade() {
