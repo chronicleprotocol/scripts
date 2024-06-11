@@ -107,7 +107,10 @@ sanitize_values() {
         /tmp/yq_linux_amd64 -i 'del(.musig)' $HOME/$FEED_NAME/generated-values.yaml
         /tmp/yq_linux_amd64 -i 'del(.ghost.chainId)' $HOME/$FEED_NAME/generated-values.yaml
         /tmp/yq_linux_amd64 -i 'del(.ghost.ethChainId)' $HOME/$FEED_NAME/generated-values.yaml
+        /tmp/yq_linux_amd64 -i 'del(.ghost.env.normal.CFG_WEB_URL)' $HOME/$FEED_NAME/generated-values.yaml
     else
+        echo "\e[32m[INFO] Removing CFG_WEB_URL as the tor-controller handles this now...\e[0m"
+        /tmp/yq_linux_amd64 -i 'del(.ghost.env.normal.CFG_WEB_URL)' $HOME/$FEED_NAME/generated-values.yaml
         echo "\e[32m[INFO] .Values.musig not present in the YAML file. Skipping sanitization.\e[0m"
     fi
 }
