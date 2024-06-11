@@ -153,15 +153,6 @@ install_deps() {
         validate_command k3s
         echo -e "\e[32m[SUCCESS]: k3s is now installed !!!\e[0m"
     fi
-
-    # Validate and install keeman
-    if ! command -v keeman > /dev/null; then
-        echo -e "\e[32m[INFO]:..........Installing keeman.........\e[0m"
-        wget https://github.com/chronicleprotocol/keeman/releases/download/v0.4.1/keeman_0.4.1_linux_amd64.tar.gz -O - | tar -xz
-        sudo mv keeman /usr/local/bin
-        validate_command keeman
-        echo -e "\e[32m[SUCCESS]: keeman is now installed !!!\e[0m"
-    fi
 }
 
 set_kubeconfig() {
@@ -274,40 +265,6 @@ create_eth_secret() {
     echo -e "\e[33m-----------------------------------------------------------------------------------------------------\e[0m"
 }
 
-create_tor_secret() {
-    set_kubeconfig
-    validate_vars
-
-    # Check if torkeys.json already exists
-    if [ ! -f "$HOME/$FEED_NAME/torkeys.json" ]; then
-        keeman gen | tee >(cat >&2) | keeman derive -f onion > "$HOME/$FEED_NAME/torkeys.json"
-    else
-        echo -e "\e[33m[INFO]: Using existing torkeys.json file.\e[0m"
-    fi
-
-    # Check if the secret already exists
-    if kubectl get secret $FEED_NAME-tor-keys --namespace $FEED_NAME > /dev/null 2>&1; then
-        echo -e "\e[33m[WARN]: Secret $FEED_NAME-tor-keys already exists. Updating...\e[0m"
-        kubectl delete secret $FEED_NAME-tor-keys --namespace $FEED_NAME
-    fi
-
-    # Create or update the secret
-    kubectl create secret generic $FEED_NAME-tor-keys \
-        --from-literal=hostname="$(jq -r '.hostname' < $HOME/$FEED_NAME/torkeys.json)" \
-        --from-literal=hs_ed25519_secret_key="$(jq -r '.secret_key' < $HOME/$FEED_NAME/torkeys.json)" \
-        --from-literal=hs_ed25519_public_key="$(jq -r '.public_key' < $HOME/$FEED_NAME/torkeys.json)" \
-        --namespace $FEED_NAME || {
-        echo -e "\e[31m[ERROR]: Failed to create/update secret $FEED_NAME-tor-keys\e[0m"
-        exit 1
-    }
-
-    declare -g TOR_HOSTNAME="$(jq -r '.hostname' < $HOME/$FEED_NAME/torkeys.json)"
-    echo -e "\e[33m-----------------------------------------------------------------------------------------------------\e[0m"
-    echo -e "\e[33mThis is your .onion address:\e[0m"
-    echo -e "\e[33m$TOR_HOSTNAME\e[0m"
-    echo -e "\e[33m-----------------------------------------------------------------------------------------------------\e[0m"
-}
-
 generate_values() {
     validate_vars
 
@@ -340,14 +297,10 @@ ghost:
   env:
     normal:
       CFG_LIBP2P_EXTERNAL_ADDR: '/ip4/${NODE_EXT_IP}'
-      CFG_WEB_URL: '${TOR_HOSTNAME}'
 
   ethRpcUrl: "${ETH_RPC_URL}"
   rpcUrl: "${ETH_RPC_URL}"
 
-tor-proxy:
-  torConfig:
-    existingSecret: '${FEED_NAME}-tor-keys'
 EOF
 
     if [ ! -f "$VALUES_FILE" ]; then
@@ -415,8 +368,6 @@ main() {
     create_namespace
     echo -e "\e[32m[INFO]:..........create secret with ETH keys..........\e[0m"
     create_eth_secret
-    echo -e "\e[32m[INFO]:..........create secret with TOR keys..........\e[0m"
-    create_tor_secret
     echo -e "\e[32m[INFO]:..........generate helm values file..........\e[0m"
     generate_values
     echo -e "\e[32m[INFO]:..........create helm release..........\e[0m"
