@@ -3,12 +3,30 @@
 The script is interactive and requires user input for various parameters like feed name, paths to ETH keystore file and password file, ETH address, and an Ethereum Mainnet RPC endpoint. The script should not be run as root, and a user with sudo permissions is required. If run as root, the script will prompt the user to create a new user.
 
 ### Key Steps:
-Retrieve and Execute the Installation Script:
 
+1. Install the Foundry Toolchain:
 
+```bash
+curl -L https://foundry.paradigm.xyz | bash
 ```
+
+2. Generate a new Encrypted Keystore Wallet:
+
+```bash
 cd /tmp
-wget https://raw.githubusercontent.com/chronicleprotocol/scripts/main/feeds/k3s-install/install.sh 
+wget https://raw.githubusercontent.com/chronicleprotocol/scripts/main/feeds/keystore-generator.sh
+chmod a+x keystore-generator.sh
+# $id                : The 1-byte validator identifier, eg `0xFF`
+# $keystore_path     : The path where to install the keystore to
+# $keystore_password : The password to encrypt the keystore with
+./keystore-generator $id $keystore_path $keystore_password
+```
+
+3. Retrieve and Execute the Installation Script:
+
+```bash
+cd /tmp
+wget https://raw.githubusercontent.com/chronicleprotocol/scripts/main/feeds/k3s-install/install.sh
 chmod a+x install.sh
 ./install.sh
 ```
