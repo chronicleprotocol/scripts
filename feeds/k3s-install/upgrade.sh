@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail # Enable strict mode for bash
 
+CHART_VERSION="0.4.4"
+
 EPOCH=$(date +%s)
 LOG_FILE="/tmp/upgrader-crash-${EPOCH}.log"
 
@@ -95,19 +97,18 @@ sanitize_values() {
     yaml_file="$HOME/$FEED_NAME/generated-values.yaml"
     yaml_content=$(<"$yaml_file")
 
-    # Extract the value of musig.env.normal.CFG_WEB_URL
-    musig_web_url=$(echo "$yaml_content" | /tmp/yq_linux_amd64 '.musig.env.normal.CFG_WEB_URL' -)
+    # We need to set the public IP in `.Values.vao` so we get it from `.Values.ghost`
+    public_ip=$(echo "$yaml_content" | /tmp/yq_linux_amd64 '.ghost.env.normal.CFG_LIBP2P_EXTERNAL_ADDR' -)
     
-    # Check if musig_web_url is not empty
-    if [[ "$musig_web_url" != "null" ]]; then
-        echo -e "\e[32m[INFO]: .Values.musig present .....Sanitizing generated-values.yaml .....\e[0m"
+    # Check if public_ip is not empty
+    if [[ "$public_ip" != "null" ]]; then
+        echo -e "\e[32m[INFO]: .....Preparing generated-values.yaml with .Values.vao .....\e[0m"
         # Create a new YAML structure with the updated value
-        /tmp/yq_linux_amd64 -i '.ghost.env.normal.CFG_WEB_URL = .musig.env.normal.CFG_WEB_URL' $HOME/$FEED_NAME/generated-values.yaml
+        /tmp/yq_linux_amd64 -i '.global.logLevel = .ghost.logLevel' $HOME/$FEED_NAME/generated-values.yaml
+        /tmp/yq_linux_amd64 -i '.vao.env.normal.CFG_LIBP2P_EXTERNAL_ADDR = .ghost.env.normal.CFG_LIBP2P_EXTERNAL_ADDR' $HOME/$FEED_NAME/generated-values.yaml
         # remove redunent values from generated-values.yaml
-        /tmp/yq_linux_amd64 -i 'del(.musig)' $HOME/$FEED_NAME/generated-values.yaml
-        /tmp/yq_linux_amd64 -i 'del(.ghost.chainId)' $HOME/$FEED_NAME/generated-values.yaml
-        /tmp/yq_linux_amd64 -i 'del(.ghost.ethChainId)' $HOME/$FEED_NAME/generated-values.yaml
-        /tmp/yq_linux_amd64 -i 'del(.ghost.env.normal.CFG_WEB_URL)' $HOME/$FEED_NAME/generated-values.yaml
+        /tmp/yq_linux_amd64 -i 'del(.ghost.logLevel)' $HOME/$FEED_NAME/generated-values.yaml
+
     else
         echo "\e[32m[INFO] Removing CFG_WEB_URL as the tor-controller handles this now...\e[0m"
         /tmp/yq_linux_amd64 -i 'del(.ghost.env.normal.CFG_WEB_URL)' $HOME/$FEED_NAME/generated-values.yaml
@@ -119,19 +120,19 @@ create_helm_upgrade() {
     # helm upgrade $FEED_NAME with --debug and --dry-run
     echo -e "\e[32m[INFO]:..........DRY RUN UPGRADE feed: $FEED_NAME in namespace: $FEED_NAME.........\e[0m"
     helm repo update
-    helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --debug --dry-run
+    helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION" --debug --dry-run
 
     # prompt user to confirm upgrade, accept a Y/N
     echo -e "\e[33m[NOTICE]: DRY RUN UPGRADE complete! Do you want to continue with the upgrade? (y/n): "
     read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         echo -e "\e[33m[NOTICE]: Upgrading feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
-        helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME"
+        helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION"
     else
         echo -e "\e[33m[NOTICE]: Terminating the script as per user request.\e[0m"
         # print the helm command they will need to run
         echo -e "\e[33m[NOTICE]: You can run the following command to upgrade the feed:\e[0m"
-        echo -e "\e[33m[NOTICE]: helm upgrade $FEED_NAME -f $HOME/$FEED_NAME/generated-values.yaml chronicle/validator --namespace $FEED_NAME\e[0m"
+        echo -e "\e[33m[NOTICE]: helm upgrade $FEED_NAME -f $HOME/$FEED_NAME/generated-values.yaml chronicle/validator --namespace $FEED_NAME --version $CHART_VERSION\e[0m"
         exit 0
     fi
 }
