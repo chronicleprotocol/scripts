@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail # Enable strict mode for bash
 
+CHART_VERSION="0.4.4"
+
 EPOCH=$(date +%s)
 LOG_FILE="/tmp/installer-crash-${EPOCH}.log"
 
@@ -48,7 +50,7 @@ validate_vars() {
 validate_os() {
     OS_VERSION=$(lsb_release -rs)
     if [[ ! "$OS_VERSION" =~ ^(22\.*|23\.*|24\.*)(\..*)?$ ]]; then
-        echo -e "\e[31m[ERROR]: This script is designed for Ubuntu 22.04 and 23.04!\e[0m"
+        echo -e "\e[31m[ERROR]: This script is designed for Ubuntu 22.04, 23.04, 24.0.4!\e[0m"
         exit 1
     fi
 }
@@ -118,7 +120,7 @@ install_deps() {
     echo -e "\e[32m[INFO]:..........Updating package lists for upgrades and new package installations.........\e[0m"
     sudo apt-get update -y
 
-    for cmd in dig curl jq; do
+    for cmd in curl jq; do
         if ! command -v $cmd > /dev/null; then
             echo -e "\e[32m[INFO]:..........Installing $cmd.........\e[0m"
             sudo apt-get install -y $cmd
@@ -127,6 +129,12 @@ install_deps() {
         fi
     done
 
+    if ! command -v dig > /dev/null; then
+        echo -e "\e[32m[INFO]:..........Installing dnsutils.........\e[0m"
+        sudo apt-get install -y dig
+        validate_command dig
+        echo -e "\e[32m[SUCCESS]: dig is now installed !!!\e[0m"
+    fi
     # Validate and install helm
     if ! command -v helm > /dev/null; then
         echo -e "\e[32m[INFO]:..........Installing helm.........\e[0m"
@@ -281,8 +289,10 @@ generate_values() {
 
     VALUES_FILE="$DIRECTORY_PATH/generated-values.yaml"
     cat <<EOF > "$VALUES_FILE"
-ghost:
+global:
   logLevel: "${LOG_LEVEL:-warning}"
+
+ghost:
   ethConfig:
     ethFrom:
       existingSecret: '${FEED_NAME}-eth-keys'
@@ -301,6 +311,10 @@ ghost:
   ethRpcUrl: "${ETH_RPC_URL}"
   rpcUrl: "${ETH_RPC_URL}"
 
+vao:
+  env:
+    normal:
+      CFG_LIBP2P_EXTERNAL_ADDR: '/ip4/${NODE_EXT_IP}'
 EOF
 
     if [ ! -f "$VALUES_FILE" ]; then
@@ -308,15 +322,15 @@ EOF
         exit 1
     fi
 
-    echo -e "\e[33m------------------------------------------------------------------------------------------------------------------------------------------\e[0m"
-    echo -e "\e[33m| Script will attempt to run  '\e[31m helm install \"$FEED_NAME\" -f \"$VALUES_FILE\"  chronicle/validator --namespace \"$FEED_NAME\"'    |\e[0m"
-    echo -e "\e[33m-------------------------------------------------------------------------------------------------------------------------------------------\e[0m"
+    echo -e "\e[33m------------------------------------------------------------------------------------------------------------------------------------------------------------------------\e[0m"
+    echo -e "\e[33m| Script will attempt to run  '\e[31m helm install \"$FEED_NAME\" -f \"$VALUES_FILE\"  chronicle/validator --namespace \"$FEED_NAME\" --version \"$CHART_VERSION\"'    |\e[0m"
+    echo -e "\e[33m------------------------------------------------------------------------------------------------------------------------------------------------------------------------\e[0m"
 }
 
 create_helm_release() {
     set_kubeconfig
     validate_vars
-    helm repo add chronicle https://chronicleprotocol.github.io/charts/
+    helm repo add chronicle https://chronicleprotocol.github.io/charts/ --force-update
     helm repo update
 
     # Check if release already exists in the specified namespace
@@ -330,7 +344,7 @@ create_helm_release() {
         case "$choice" in
             1)
                 echo -e "\e[33m[WARN]: Attempting to upgrade existing feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
-                helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME"
+                helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION"
                 ;;
             2)
                 echo -e "\e[33m[WARN]: Terminating the script as per user request.\e[0m"
@@ -339,7 +353,7 @@ create_helm_release() {
             3)
                 echo -e "\e[33m[WARN]: Deleting the release, and installing again.\e[0m"
                 helm uninstall "$FEED_NAME" --namespace "$FEED_NAME"
-                helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME"
+                helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION"
                 ;;
             *)
                 echo -e "\e[31m[ERROR]: Invalid choice. Terminating the script.\e[0m"
@@ -348,7 +362,7 @@ create_helm_release() {
         esac
     else
         echo -e "\e[33m[INFO]: First attempt at installing feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
-        helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME"
+        helm install "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION"
     fi
 }
 
