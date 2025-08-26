@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail # Enable strict mode for bash
 
-CHART_VERSION="0.4.4"
+CHART_VERSION="0.4.6"
 
 EPOCH=$(date +%s)
 LOG_FILE="/tmp/upgrader-crash-${EPOCH}.log"
@@ -112,7 +112,7 @@ sanitize_values() {
     else
         echo "\e[32m[INFO] Removing CFG_WEB_URL as the tor-controller handles this now...\e[0m"
         /tmp/yq_linux_amd64 -i 'del(.ghost.env.normal.CFG_WEB_URL)' $HOME/$FEED_NAME/generated-values.yaml
-        echo "\e[32m[INFO] .Values.musig not present in the YAML file. Skipping sanitization.\e[0m"
+        echo "\e[32m[INFO] .Values YAML looks as expected. Skipping sanitization.\e[0m"
     fi
 }
 
