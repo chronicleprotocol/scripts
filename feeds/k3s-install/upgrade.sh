@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail # Enable strict mode for bash
 
-CHART_VERSION="0.4.6"
+CHART_VERSION="0.4.8"
 
 EPOCH=$(date +%s)
 LOG_FILE="/tmp/upgrader-crash-${EPOCH}.log"
