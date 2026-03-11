@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail # Enable strict mode for bash
 
-CHART_VERSION="0.4.8"
+CHART_VERSION="0.5.1"
 
 EPOCH=$(date +%s)
 LOG_FILE="/tmp/installer-crash-${EPOCH}.log"

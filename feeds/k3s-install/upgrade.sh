@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail # Enable strict mode for bash
 
-CHART_VERSION="0.4.8"
+CHART_VERSION="0.5.1"
 
 EPOCH=$(date +%s)
 LOG_FILE="/tmp/upgrader-crash-${EPOCH}.log"
@@ -13,7 +13,6 @@ trap 'handle_error $LINENO' ERR
 handle_error() {
     echo -e "\e[31m[ERROR]: Script failed at line $1 with status $?\e[0m" | tee -a "$LOG_FILE"
     display_usage
-
 }
 
 display_usage() {
@@ -27,18 +26,14 @@ display_usage() {
 
 # Source the .env file if it exists and prompt for FEED_NAME if not set
 validate_dot_env() {
-    # Check if FEED_NAME is already set in the environment
     if [[ -n "${FEED_NAME:-}" ]]; then
         echo "FEED_NAME: $FEED_NAME" | tee -a "$LOG_FILE"
     else
-        # Check if .env file exists
         if [ -f ".env" ]; then
             source .env
-            # Check if FEED_NAME is set after sourcing .env
             if [[ -n "${FEED_NAME:-}" ]]; then
                 echo "FEED_NAME: $FEED_NAME" | tee -a "$LOG_FILE"
             else
-                # Prompt the user for FEED_NAME if still not set
                 echo -e "\e[33m[WARNING]: FEED_NAME is not set in .env file.\e[0m" | tee -a "$LOG_FILE"
                 read -rp "Enter FEED_NAME: " FEED_NAME
                 if [[ -n "${FEED_NAME:-}" ]]; then
@@ -75,62 +70,20 @@ validate_user() {
     fi
 }
 
-# install yq if not installed
-validate_command() {
-    command -v /tmp/yq_linux_amd64 > /dev/null 2>&1 || {
-        echo -e "\e[31m[ERROR]: the yq needed is not available!\e[0m"  | tee -a "$LOG_FILE"
-        echo -e "\e[32m[INFO]:..........Getting yq from github.........\e[0m"
-        wget https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -P /tmp
-        chmod a+x /tmp/yq_linux_amd64
-        echo -e "\e[32m[SUCCESS]: yq is now available in /tmp/yq_linux_amd64 !!!\e[0m"
-    }
-}
-
-sanitize_values() {
-    echo -e "\e[32m[INFO]:..........Creating backup of generated-values.yaml.........\e[0m"
-    # create a backup of the current generated-values.yaml as generated-values.yaml.bak
-    helm get values "$FEED_NAME" -n "$FEED_NAME" > "$HOME/$FEED_NAME/.generated-values.yaml.${EPOCH}-HELM_BACKUP"
-    cp "$HOME/$FEED_NAME/generated-values.yaml" "$HOME/$FEED_NAME/.generated-values.yaml.${EPOCH}-bak"
-
-    echo -e "\e[32m[INFO]:..........Sanitizing generated-values.yaml.........\e[0m"
-    # Read the YAML file
-    yaml_file="$HOME/$FEED_NAME/generated-values.yaml"
-    yaml_content=$(<"$yaml_file")
-
-    # We need to set the public IP in `.Values.vao` so we get it from `.Values.ghost`
-    public_ip=$(echo "$yaml_content" | /tmp/yq_linux_amd64 '.ghost.env.normal.CFG_LIBP2P_EXTERNAL_ADDR' -)
-    
-    # Check if public_ip is not empty
-    if [[ "$public_ip" != "null" ]]; then
-        echo -e "\e[32m[INFO]: .....Preparing generated-values.yaml with .Values.vao .....\e[0m"
-        # Create a new YAML structure with the updated value
-        /tmp/yq_linux_amd64 -i '.global.logLevel = .ghost.logLevel' $HOME/$FEED_NAME/generated-values.yaml
-        /tmp/yq_linux_amd64 -i '.vao.env.normal.CFG_LIBP2P_EXTERNAL_ADDR = .ghost.env.normal.CFG_LIBP2P_EXTERNAL_ADDR' $HOME/$FEED_NAME/generated-values.yaml
-        # remove redunent values from generated-values.yaml
-        /tmp/yq_linux_amd64 -i 'del(.ghost.logLevel)' $HOME/$FEED_NAME/generated-values.yaml
-
-    else
-        echo "\e[32m[INFO] Removing CFG_WEB_URL as the tor-controller handles this now...\e[0m"
-        /tmp/yq_linux_amd64 -i 'del(.ghost.env.normal.CFG_WEB_URL)' $HOME/$FEED_NAME/generated-values.yaml
-        echo "\e[32m[INFO] .Values YAML looks as expected. Skipping sanitization.\e[0m"
-    fi
-}
-
 create_helm_upgrade() {
-    # helm upgrade $FEED_NAME with --debug and --dry-run
-    echo -e "\e[32m[INFO]:..........DRY RUN UPGRADE feed: $FEED_NAME in namespace: $FEED_NAME.........\e[0m"
-    helm repo update
-    helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION" --debug --dry-run
+    echo -e "\e[32m[INFO]:..........Updating helm repositories.........\e[0m" | tee -a "$LOG_FILE"
+    helm repo update | tee -a "$LOG_FILE"
 
-    # prompt user to confirm upgrade, accept a Y/N
-    echo -e "\e[33m[NOTICE]: DRY RUN UPGRADE complete! Do you want to continue with the upgrade? (y/n): "
+    echo -e "\e[32m[INFO]:..........DRY RUN UPGRADE feed: $FEED_NAME in namespace: $FEED_NAME.........\e[0m" | tee -a "$LOG_FILE"
+    helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION" --debug --dry-run 2>&1 | tee -a "$LOG_FILE"
+
+    echo -e "\e[33m[NOTICE]: DRY RUN UPGRADE complete! Do you want to continue with the upgrade? (y/n): \e[0m"
     read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-        echo -e "\e[33m[NOTICE]: Upgrading feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m"
-        helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION"
+        echo -e "\e[33m[NOTICE]: Upgrading feed: $FEED_NAME in namespace: $FEED_NAME.\e[0m" | tee -a "$LOG_FILE"
+        helm upgrade "$FEED_NAME" -f "$HOME/$FEED_NAME/generated-values.yaml" chronicle/validator --namespace "$FEED_NAME" --version "$CHART_VERSION" 2>&1 | tee -a "$LOG_FILE"
     else
         echo -e "\e[33m[NOTICE]: Terminating the script as per user request.\e[0m"
-        # print the helm command they will need to run
         echo -e "\e[33m[NOTICE]: You can run the following command to upgrade the feed:\e[0m"
         echo -e "\e[33m[NOTICE]: helm upgrade $FEED_NAME -f $HOME/$FEED_NAME/generated-values.yaml chronicle/validator --namespace $FEED_NAME --version $CHART_VERSION\e[0m"
         exit 0
@@ -141,10 +94,8 @@ main() {
     echo -e "\e[32m[INFO]:..........Attempting to upgrade Chronicle feed.........\e[0m"
     validate_user
     validate_dot_env
-    validate_command
-    sanitize_values
     create_helm_upgrade
-    echo -e "\e[33m[SUCCESS]: Upgrade complete!\e[0m"
+    echo -e "\e[32m[SUCCESS]: Upgrade complete!\e[0m" | tee -a "$LOG_FILE"
 }
 
 main "$@"
